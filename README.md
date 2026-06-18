@@ -69,49 +69,39 @@ Trang **Chatbot WORKBank AI** được xây dựng dựa trên kiến trúc **RA
 
 ---
 
-## 📊 Sơ Đồ Quan Hệ Dữ Liệu (ERD)
+## 📊 Sơ Đồ Luồng Hoạt Động (Flowchart)
 
-Để hiểu rõ hơn về mối quan hệ giữa các tệp dữ liệu được sử dụng trong ứng dụng, dưới đây là Sơ đồ mối quan hệ thực thể (ERD) mô tả cấu trúc lưu trữ:
+Dưới đây là Sơ đồ luồng hoạt động (Flowchart) mô tả cách thức xử lý dữ liệu và luồng đi của ứng dụng:
 
 ```mermaid
-erDiagram
-    USER_METADATA {
-        string User_ID PK "Mã định danh người tham gia khảo sát"
-        string Occupation "Ngành nghề của người khảo sát"
-        string Gender "Giới tính"
-        string Race "Chủng tộc"
-        string Income "Mức thu nhập"
-        int Age "Tuổi"
-        string Education "Học vấn"
-        string Experience "Kinh nghiệm làm việc"
-    }
+graph TD
+    A("Người dùng mở ứng dụng") --> B("Tải dữ liệu thô (domain_worker_desires.csv,...)")
+    B --> C("Hiển thị giao diện & Thanh điều hướng (Sidebar)")
+    C --> D{"Người dùng chọn trang chức năng"}
     
-    TASK_STATEMENT {
-        int Task_ID PK "Mã định danh tác vụ"
-        string Task_Name "Tên mô tả tác vụ"
-        string Occupation "Ngành nghề của tác vụ"
-        float Wage "Mức lương trung bình năm"
-        string Skills "Kỹ năng liên quan (O*NET)"
-    }
-
-    WORKER_DESIRE {
-        string User_ID FK "Liên kết tới USER_METADATA"
-        int Task_ID FK "Liên kết tới TASK_STATEMENT"
-        int Automation_Desire_Rating "Độ mong muốn tự động hóa (1-5)"
-        int Human_Agency_Scale_Rating "Mức độ HAS mong muốn (1-5)"
-        string Expertise "Tự đánh giá chuyên môn"
-    }
-
-    EXPERT_CAPABILITY {
-        string User_ID FK "Mã định danh chuyên gia"
-        int Task_ID FK "Liên kết tới TASK_STATEMENT"
-        int Automation_Capacity_Rating "Đánh giá khả năng AI (1-5)"
-        int Human_Agency_Scale_Rating "Đánh giá HAS cần thiết (1-5)"
-    }
-
-    USER_METADATA ||--o{ WORKER_DESIRE : "declares"
-    TASK_STATEMENT ||--o{ WORKER_DESIRE : "evaluated_by"
-    TASK_STATEMENT ||--o{ EXPERT_CAPABILITY : "evaluated_by"
+    D -->|1. Cảnh quan Tự động hóa| E1["Lọc dữ liệu theo ngành chọn (hoặc Tất cả)"]
+    E1 --> E2["Tính điểm TB Capability (Expert) & Desire (Worker)"]
+    E2 --> E3["Vẽ biểu đồ phân tán (Desire vs Capability)"]
+    E3 --> E4["Hiển thị số lượng & tỷ lệ tác vụ theo 4 phân vùng chiến lược"]
+    
+    D -->|2. Phân bố & Bất cân đối| F1["Lọc dữ liệu theo ngành chọn (hoặc Tất cả)"]
+    F1 --> F2["Đếm số tác vụ trong từng phân vùng Đèn Xanh/Đỏ/R&D/Ưu tiên thấp"]
+    F2 --> F3["Tính tỷ lệ bất cân đối (Mismatch %)"]
+    F3 --> F4["Vẽ biểu đồ cột & Gợi ý danh sách tác vụ hành động"]
+    
+    D -->|3. Thang đo HAS| G1["Chọn ngành IT cụ thể"]
+    G1 --> G2["Tính tỷ lệ % phân bố HAS (H1-H5) của Worker vs Expert"]
+    G2 --> G3["Vẽ biểu đồ so sánh & Đánh giá mức độ đồng thuận"]
+    
+    D -->|4. Dịch chuyển Kỹ năng| H1["Tính lương TB & điểm HAS TB cho các kỹ năng"]
+    H1 --> H2["Xếp hạng các kỹ năng theo lương & theo HAS"]
+    H2 --> H3["Vẽ biểu đồ dốc (Slope Chart) so sánh dịch chuyển thứ hạng"]
+    
+    D -->|5. Chatbot WORKBank AI| I1["Nhập câu hỏi (tiếng Việt hoặc tiếng Anh)"]
+    I1 --> I2["Mở rộng truy vấn (Bilingual Query Expansion)"]
+    I2 --> I3["Tìm kiếm top 4 trang tài liệu liên quan bằng TF-IDF từ paper_text.json"]
+    I3 --> I4["Gửi ngữ cảnh trích xuất + lịch sử chat tới Groq API (llama-3.3-70b)"]
+    I4 --> I5["Streaming câu trả lời & hiển thị nguồn trích dẫn"]
 ```
 
 ---
