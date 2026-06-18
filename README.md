@@ -2,6 +2,8 @@
 
 Dự án này là một ứng dụng web trực quan hóa dữ liệu tương tác xây dựng trên thư viện **Streamlit** (Python). Ứng dụng triển khai các phân tích và khuyến nghị triển khai AI Agent dựa trên khung lý thuyết của bài báo khoa học: *"Future of Work with AI Agents: Auditing Automation and Augmentation Potential across the U.S. Workforce"* (WORKBank paper, arXiv:2506.06576).
 
+**🌐 Link Demo Trực Tuyến:** [analysisaiagentforcs.streamlit.app](https://analysisaiagentforcs.streamlit.app/)
+
 Ứng dụng tích hợp các biểu đồ tương tác cao cấp và một **Chatbot AI** thông minh được huấn luyện bằng toàn bộ tài liệu nghiên cứu gốc nhằm trả lời trực tiếp các câu hỏi của người dùng.
 
 ---
