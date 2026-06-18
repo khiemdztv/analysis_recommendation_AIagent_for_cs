@@ -182,6 +182,15 @@ def page_landscape(landscape_df):
         "với **khả năng AI được chuyên gia đánh giá** (trục X) cho các tác vụ IT. Ngưỡng phân chia: 3.0."
     )
 
+    selected_occ = st.selectbox(
+        "🔽 Chọn ngành nghề cần lọc (Mặc định: Tất cả):",
+        ["✨ Tất cả"] + IT_OCCUPATIONS,
+        index=0,
+        key="landscape_occ_filter"
+    )
+    if selected_occ != "✨ Tất cả":
+        landscape_df = landscape_df[landscape_df["Occupation"] == selected_occ]
+
     fig = go.Figure()
 
     # Background quadrant rectangles
@@ -264,15 +273,26 @@ def page_mismatch(landscape_df):
         "giúp nhận diện sự **bất cân đối** trong nỗ lực tự động hóa."
     )
 
-    quad_counts = landscape_df["Quadrant"].value_counts().reset_index()
-    quad_counts.columns = ["Quadrant", "Task_Count"]
+    selected_occ = st.selectbox(
+        "🔽 Chọn ngành nghề cần lọc (Mặc định: Tất cả):",
+        ["✨ Tất cả"] + IT_OCCUPATIONS,
+        index=0,
+        key="mismatch_occ_filter"
+    )
+    if selected_occ != "✨ Tất cả":
+        landscape_df = landscape_df[landscape_df["Occupation"] == selected_occ]
 
     order = ["Green Light", "R&D Opportunity", "Red Light", "Low Priority"]
-    quad_counts["Quadrant"] = pd.Categorical(quad_counts["Quadrant"], categories=order, ordered=True)
-    quad_counts = quad_counts.sort_values("Quadrant").reset_index(drop=True)
+    quad_counts_dict = {q: 0 for q in order}
+    for q, val in landscape_df["Quadrant"].value_counts().items():
+        quad_counts_dict[q] = val
+        
+    quad_counts = pd.DataFrame([
+        {"Quadrant": q, "Task_Count": count} for q, count in quad_counts_dict.items()
+    ])
 
     total = quad_counts["Task_Count"].sum()
-    quad_counts["Percentage"] = (quad_counts["Task_Count"] / total * 100).round(1)
+    quad_counts["Percentage"] = (quad_counts["Task_Count"] / total * 100).round(1) if total > 0 else 0
 
     # Highlight colors: warning for Red Light & Low Priority
     bar_colors = []
@@ -297,7 +317,7 @@ def page_mismatch(landscape_df):
     # Highlight annotation for Red + Low
     red_count = quad_counts.loc[quad_counts["Quadrant"] == "Red Light", "Task_Count"].values[0]
     low_count = quad_counts.loc[quad_counts["Quadrant"] == "Low Priority", "Task_Count"].values[0]
-    mismatch_pct = (red_count + low_count) / total * 100
+    mismatch_pct = (red_count + low_count) / total * 100 if total > 0 else 0
 
     fig.update_layout(
         template="plotly_white",
