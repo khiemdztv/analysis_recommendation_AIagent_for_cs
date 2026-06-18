@@ -69,79 +69,50 @@ Trang **Chatbot WORKBank AI** được xây dựng dựa trên kiến trúc **RA
 
 ---
 
-## 📊 Sơ Đồ Luồng Hoạt Động (Flowchart)
+## 📊 Sơ Đồ Quan Hệ Dữ Liệu (ERD)
 
-![Sơ đồ luồng hoạt động](flowchart.png)
-
-<details>
-<summary>💻 Xem mã nguồn Mermaid (Hiển thị biểu đồ động trên GitHub)</summary>
+Để hiểu rõ hơn về mối quan hệ giữa các tệp dữ liệu được sử dụng trong ứng dụng, dưới đây là Sơ đồ mối quan hệ thực thể (ERD) mô tả cấu trúc lưu trữ:
 
 ```mermaid
-graph TB
-    %% Class Definitions for Premium Styling
-    classDef main fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef page fill:#f1f8e9,stroke:#558b2f,stroke-width:2px,color:#2e7d32;
-    classDef chat fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#e65100;
-    classDef data fill:#eceff1,stroke:#455a64,stroke-width:2px,color:#263238;
-    classDef action fill:#fafafa,stroke:#9e9e9e,stroke-width:1px,color:#424242;
+erDiagram
+    USER_METADATA {
+        string User_ID PK "Mã định danh người tham gia khảo sát"
+        string Occupation "Ngành nghề của người khảo sát"
+        string Gender "Giới tính"
+        string Race "Chủng tộc"
+        string Income "Mức thu nhập"
+        int Age "Tuổi"
+        string Education "Học vấn"
+        string Experience "Kinh nghiệm làm việc"
+    }
+    
+    TASK_STATEMENT {
+        int Task_ID PK "Mã định danh tác vụ"
+        string Task_Name "Tên mô tả tác vụ"
+        string Occupation "Ngành nghề của tác vụ"
+        float Wage "Mức lương trung bình năm"
+        string Skills "Kỹ năng liên quan (O*NET)"
+    }
 
-    %% Database files
-    subgraph SGData ["📦 Nguồn Dữ Liệu"]
-        D1[("domain_worker_desires.csv")]
-        D2[("expert_rated_technological_capability.csv")]
-        D3[("task_statement_with_metadata.csv")]
-        D4[("2506.06576v3.pdf (Trích xuất JSON)")]
-    end
-    class D1,D2,D3,D4 data;
+    WORKER_DESIRE {
+        string User_ID FK "Liên kết tới USER_METADATA"
+        int Task_ID FK "Liên kết tới TASK_STATEMENT"
+        int Automation_Desire_Rating "Độ mong muốn tự động hóa (1-5)"
+        int Human_Agency_Scale_Rating "Mức độ HAS mong muốn (1-5)"
+        string Expertise "Tự đánh giá chuyên môn"
+    }
 
-    %% Entry & Navigation
-    subgraph SGNav ["🌐 Giao Diện & Điều Hướng"]
-        A["Khách truy cập App (Streamlit)"] --> B{"Lựa chọn trên Sidebar"}
-    end
-    class A main;
-    class B action;
+    EXPERT_CAPABILITY {
+        string User_ID FK "Mã định danh chuyên gia"
+        int Task_ID FK "Liên kết tới TASK_STATEMENT"
+        int Automation_Capacity_Rating "Đánh giá khả năng AI (1-5)"
+        int Human_Agency_Scale_Rating "Đánh giá HAS cần thiết (1-5)"
+    }
 
-    %% Analysis Pages
-    subgraph SGAnalysis ["📊 Phân Hệ Trực Quan Hóa & Thống Kê"]
-        B -->|Trang 1| P1["1️⃣ Cảnh quan Tự động hóa"]
-        B -->|Trang 2| P2["2️⃣ Phân bố & Bất cân đối"]
-        B -->|Trang 3| P3["3️⃣ Thang đo HAS"]
-        B -->|Trang 4| P4["4️⃣ Dịch chuyển Kỹ năng"]
-
-        P1 --> V1["Scatter Plot: Desire vs Capability"]
-        P2 --> V2["Bar Chart & Phân tích Đèn Đỏ/Xanh"]
-        P3 --> V3["Line Chart: So sánh Worker vs Expert"]
-        P4 --> V4["Slope Chart: Wage Rank vs HAS Rank"]
-    end
-    class P1,P2,P3,P4 page;
-    class V1,V2,V3,V4 action;
-
-    %% Connect DB to Analysis
-    D1 -.-> P1
-    D2 -.-> P1
-    D1 -.-> P3
-    D2 -.-> P3
-    D3 -.-> P4
-    D2 -.-> P4
-
-    %% Chatbot RAG System
-    subgraph SGChat ["💬 Phân Hệ Chatbot AI (RAG)"]
-        B -->|Trang 5| P5["💬 Chatbot WORKBank AI"]
-        
-        P5 --> C1["Nhập câu hỏi (Tiếng Việt/Anh)"]
-        C1 --> C2["Mở rộng truy vấn (Bilingual Query Expansion)"]
-        C2 --> C3["Truy xuất ngữ cảnh tương quan (TF-IDF)"]
-        
-        D4 -.->|"Đọc dữ liệu trang"| C3
-        
-        C3 --> C4["Tạo Prompt tích hợp (Ngữ cảnh + Lịch sử)"]
-        C4 --> C5["Gửi yêu cầu tới Groq API (llama-3.3-70b)"]
-        C5 --> C6["Streaming phản hồi ra giao diện chat & hiển thị nguồn tham khảo"]
-    end
-    class P5 chat;
-    class C1,C2,C3,C4,C5,C6 action;
+    USER_METADATA ||--o{ WORKER_DESIRE : "declares"
+    TASK_STATEMENT ||--o{ WORKER_DESIRE : "evaluated_by"
+    TASK_STATEMENT ||--o{ EXPERT_CAPABILITY : "evaluated_by"
 ```
-</details>
 
 ---
 
