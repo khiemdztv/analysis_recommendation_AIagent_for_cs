@@ -264,6 +264,29 @@ def page_landscape(landscape_df):
         pct = count / total * 100 if total > 0 else 0
         cols[i].metric(label=quad, value=f"{count} tác vụ", delta=f"{pct:.1f}%")
 
+    st.markdown("---")
+    st.markdown("### 💡 Ý nghĩa các phân vùng chiến lược:")
+    
+    col_desc1, col_desc2 = st.columns(2)
+    with col_desc1:
+        st.markdown(
+            "🟢 **Green Light:** Cả khả năng của AI (>3.0) và mong muốn của worker (>3.0) đều cao. "
+            "Đây là vùng **đồng thuận cao**, cực kỳ phù hợp để tự động hóa bằng AI Agent ngay lập tức."
+        )
+        st.markdown(
+            "🔴 **Red Light:** Khả năng AI cao (>3.0) nhưng worker không muốn tự động hóa (<=3.0). "
+            "Đây là vùng **xung đột**, cần đặc biệt cẩn trọng vì có thể làm mất đi ý nghĩa công việc hoặc gây e ngại cho người lao động."
+        )
+    with col_desc2:
+        st.markdown(
+            "🟠 **R&D Opportunity:** Worker muốn tự động hóa (>3.0) nhưng khả năng của AI thấp (<=3.0). "
+            "Đây là cơ hội tốt cho các hoạt động **nghiên cứu & phát triển (R&D)** nhằm giải quyết nhu cầu thực tế."
+        )
+        st.markdown(
+            "⬜ **Low Priority:** Cả khả năng AI và mong muốn của worker đều thấp (<=3.0). "
+            "Đây là vùng **ưu tiên thấp**, không nên tập trung nguồn lực đầu tư."
+        )
+
 
 def page_mismatch(landscape_df):
     """Prompt 2: Task distribution bar chart across quadrants."""
