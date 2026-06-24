@@ -170,6 +170,21 @@ def build_skill_shift_data(tasks_df, expert_df):
     return skill_stats
 
 
+@st.cache_data
+def build_insights_df(desires, metadata):
+    """Merge worker desires and metadata for advanced analysis."""
+    # Filter for IT occupations
+    d = desires[desires["Occupation (O*NET-SOC Title)"].isin(IT_OCCUPATIONS)].copy()
+    m = metadata[metadata["Occupation (O*NET-SOC Title)"].isin(IT_OCCUPATIONS)].copy()
+
+    # Clean up the Unicode right single quotation mark (U+2019) in Education
+    m["Education"] = m["Education"].str.replace("\u2019", "'", regex=False)  # Smart quote → ASCII apostrophe
+
+    # Merge
+    merged = pd.merge(d, m, on=["User ID", "Occupation (O*NET-SOC Title)"], how="inner")
+    return merged
+
+
 # ─────────────────────────────────────────────────────────────
 # PAGE RENDERERS
 # ─────────────────────────────────────────────────────────────
@@ -701,7 +716,10 @@ def page_chatbot():
     
     import os
     # Load Groq API Key from Streamlit secrets or environment variables
-    api_key = st.secrets.get("GROQ_API_KEY", "") or os.environ.get("GROQ_API_KEY", "")
+    try:
+        api_key = st.secrets.get("GROQ_API_KEY", "") or os.environ.get("GROQ_API_KEY", "")
+    except Exception:
+        api_key = os.environ.get("GROQ_API_KEY", "")
     
     # Fallback to local file for development
     if not api_key:
@@ -809,6 +827,442 @@ RETIREVED TEXT CHUNKS FROM PAPER:
                 st.error(f"Đã xảy ra lỗi khi gọi Groq API: {str(e)}")
 
 
+@st.cache_resource
+def get_global_paper_retriever(json_path):
+    return PaperRetriever(json_path)
+
+
+def get_groq_api_key():
+    import os
+    api_key = ""
+    try:
+        api_key = st.secrets.get("GROQ_API_KEY", "") or os.environ.get("GROQ_API_KEY", "")
+    except Exception:
+        api_key = os.environ.get("GROQ_API_KEY", "")
+    
+    if not api_key:
+        try:
+            with open("api_key.txt", "r") as f:
+                api_key = f.read().strip()
+        except FileNotFoundError:
+            pass
+    return api_key
+
+
+def generate_ai_insight_stream(prompt_context, query, system_instruction):
+    from groq import Groq
+    api_key = get_groq_api_key()
+    if not api_key:
+        st.warning("⚠️ Không tìm thấy Groq API Key. Vui lòng thiết lập biến môi trường `GROQ_API_KEY` hoặc tạo tệp `api_key.txt` cục bộ.")
+        return
+        
+    model_name = "llama-3.3-70b-versatile"
+    json_path = DATA_DIR / "paper_text.json"
+    
+    retrieved_context = ""
+    if json_path.exists():
+        try:
+            retriever = get_global_paper_retriever(json_path)
+            retrieved_pages = retriever.retrieve(query, top_k=3)
+            retrieved_context = "\n\n".join([f"--- PAGE {p['page']} ---\n{p['text']}" for p in retrieved_pages])
+        except Exception as e:
+            pass
+
+    full_system_prompt = f"""
+{system_instruction}
+
+BỐI CẢNH NẰM TRONG BÀI BÁO KHOA HỌC GỐC (WORKBank paper, arXiv:2506.06576):
+{retrieved_context}
+
+DỮ LIỆU ĐANG ĐƯỢC LỌC VÀ HIỂN THỊ TRÊN BIỂU ĐỒ (DỮ LIỆU THỰC TẾ):
+{prompt_context}
+"""
+
+    messages = [
+        {"role": "system", "content": full_system_prompt},
+        {"role": "user", "content": f"Dựa trên dữ liệu thực tế và bối cảnh bài báo, hãy phân tích và đưa ra khuyến nghị chi tiết cho: {query}"}
+    ]
+    
+    try:
+        client = Groq(api_key=api_key)
+        stream = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            temperature=0.3,
+            stream=True,
+        )
+        for chunk in stream:
+            if chunk.choices[0].delta.content is not None:
+                yield chunk.choices[0].delta.content
+    except Exception as e:
+        yield f"Đã xảy ra lỗi khi gọi Groq API: {str(e)}"
+
+
+def page_advanced_insights(desires_df, metadata_df):
+    """Trang ✨ Nghiên Cứu Độc Lập (New Insights)"""
+    st.markdown("### ✨ Nghiên Cứu Độc Lập & Phát Kiến Mới")
+    st.markdown(
+        "Khai thác chuyên sâu bộ dữ liệu khảo sát thô để tìm ra các mối tương quan về nhân khẩu học, "
+        "tâm lý lao động và trải nghiệm công nghệ thực tế của nhân sự IT mà bài báo gốc chưa đề cập."
+    )
+
+    selected_occ = st.selectbox(
+        "🔽 Chọn ngành nghề cần lọc (Mặc định: Tất cả):",
+        ["✨ Tất cả"] + IT_OCCUPATIONS,
+        index=0,
+        key="insights_occ_filter"
+    )
+
+    # Load and merge data
+    merged_df = build_insights_df(desires_df, metadata_df)
+
+    if selected_occ != "✨ Tất cả":
+        merged_df = merged_df[merged_df["Occupation (O*NET-SOC Title)"] == selected_occ]
+
+    tab1, tab2, tab3 = st.tabs([
+        "📊 Nhân khẩu học & An ninh việc làm",
+        "❤️ Enjoyment vs. Tự động hóa",
+        "🤖 Trải nghiệm LLM & Mong muốn Tự động hóa"
+    ])
+
+    with tab1:
+        st.markdown("#### 📊 Ảnh hưởng của Nhân khẩu học đến Mong muốn & An ninh việc làm")
+        st.markdown(
+            "Phân tích này đối chiếu các biến nhân khẩu học của người lao động IT để xem các nhóm tuổi, giới tính, "
+            "trình độ học vấn hoặc kinh nghiệm khác nhau phản ứng như thế nào đối với AI và Tự động hóa."
+        )
+
+        demographic_var = st.selectbox(
+            "🔽 Chọn biến nhân khẩu học cần xem:",
+            [
+                "Trình độ học vấn (Education)",
+                "Giới tính (Gender)",
+                "Kinh nghiệm làm việc (Experience)",
+                "Nhóm tuổi (Age Group)"
+            ],
+            key="demo_var_select"
+        )
+
+        df_plot = merged_df.copy()
+        if demographic_var == "Nhóm tuổi (Age Group)":
+            bins = [0, 25, 35, 45, 55, 100]
+            labels = ["Dưới 25 tuổi", "25-34 tuổi", "35-44 tuổi", "45-54 tuổi", "Trên 55 tuổi"]
+            df_plot["Age Group"] = pd.cut(df_plot["Age"], bins=bins, labels=labels)
+            group_col = "Age Group"
+        elif demographic_var == "Giới tính (Gender)":
+            group_col = "Gender"
+        elif demographic_var == "Trình độ học vấn (Education)":
+            group_col = "Education"
+        else:
+            group_col = "Experience"
+
+        # Group and calculate means
+        stats = df_plot.groupby(group_col, observed=False)[["Automation Desire Rating", "Job Security Rating"]].mean().reset_index()
+
+        # Sort values for logical display
+        if group_col == "Experience":
+            exp_order = ['Less than 1 year', '1-2 year', '3-5 years', '6-10 years', 'More than 10 years']
+            stats[group_col] = pd.Categorical(stats[group_col], categories=exp_order, ordered=True)
+            stats = stats.sort_values(group_col)
+        elif group_col == "Education":
+            edu_order = ['High School', 'Some College, No Degree', 'Associate Degree', "Bachelor's Degree", "Master's Degree", 'Doctorate (e.g., PhD)', 'Professional Degree (e.g., MD, JD)', 'Prefer not to say']
+            stats[group_col] = pd.Categorical(stats[group_col], categories=edu_order, ordered=True)
+            stats = stats.sort_values(group_col)
+
+        fig = go.Figure(data=[
+            go.Bar(
+                name='Mong muốn Tự động hóa (Automation Desire)',
+                x=stats[group_col],
+                y=stats["Automation Desire Rating"],
+                marker_color='#2ecc71'
+            ),
+            go.Bar(
+                name='Lo ngại An ninh việc làm (Job Security Concern)',
+                x=stats[group_col],
+                y=stats["Job Security Rating"],
+                marker_color='#e74c3c'
+            )
+        ])
+        fig.update_layout(
+            barmode='group',
+            title=f"Trung bình Mong muốn Tự động hóa và Lo ngại An ninh theo {demographic_var}",
+            xaxis_title=demographic_var,
+            yaxis_title="Điểm số đánh giá (Thang 1-5)",
+            yaxis=dict(range=[1, 5]),
+            template="plotly_white",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown("##### 💡 Khám phá quan trọng:")
+
+        # Dynamically compute insight text from actual data
+        if group_col == "Education":
+            phd = stats[stats[group_col].astype(str).str.contains("Doctorate|PhD", case=False, na=False)]
+            if not phd.empty:
+                phd_desire = phd["Automation Desire Rating"].values[0]
+                phd_security = phd["Job Security Rating"].values[0]
+                st.markdown(
+                    f"*   **Người có học vị cao nhất (Doctorate/PhD)** lại có mong muốn tự động hóa công việc rất cao (~{phd_desire:.2f}) "
+                    f"đồng thời có mức độ lo ngại về an ninh việc làm cao nhất (~{phd_security:.2f}). Điều này cho thấy nhóm nghiên cứu trình độ cao "
+                    "nhận thức rất rõ sức mạnh của AI và muốn dùng nó để giải phóng công việc lặp đi lặp lại, nhưng đồng thời cảm thấy áp lực lớn nhất."
+                )
+            else:
+                st.info("Không đủ dữ liệu nhóm Doctorate/PhD trong bộ lọc hiện tại.")
+        elif group_col == "Gender":
+            male = stats[stats[group_col] == "Male"]
+            female = stats[stats[group_col] == "Female"]
+            if not male.empty and not female.empty:
+                m_desire = male["Automation Desire Rating"].values[0]
+                f_desire = female["Automation Desire Rating"].values[0]
+                m_security = male["Job Security Rating"].values[0]
+                f_security = female["Job Security Rating"].values[0]
+                st.markdown(
+                    f"*   **Nam giới (Male)** có điểm mong muốn tự động hóa cao hơn (~{m_desire:.2f} so với ~{f_desire:.2f} ở Nữ), "
+                    f"nhưng **Nữ giới (Female)** lại có điểm lo ngại về an ninh việc làm cao hơn (~{f_security:.2f} so với ~{m_security:.2f} ở Nam). "
+                    "Sự lệch pha này chỉ ra rằng nam giới cởi mở hơn với công nghệ nhưng nữ giới có mức độ e dè và phòng thủ cao hơn trước làn sóng AI."
+                )
+            else:
+                st.info("Không đủ dữ liệu giới tính trong bộ lọc hiện tại.")
+        elif group_col == "Experience":
+            max_security_row = stats.loc[stats["Job Security Rating"].idxmax()]
+            min_security_row = stats.loc[stats["Job Security Rating"].idxmin()]
+            st.markdown(
+                f"*   Nhóm có **{max_security_row[group_col]}** lo ngại về an ninh việc làm nhiều nhất (~{max_security_row['Job Security Rating']:.2f}), trong khi nhóm "
+                f"**{min_security_row[group_col]}** có mức độ lo ngại thấp nhất (~{min_security_row['Job Security Rating']:.2f}). Nhóm mới vào nghề hoặc kinh nghiệm trung bình "
+                "dễ cảm thấy bấp bênh hơn do các tác vụ của họ dễ bị thay thế hơn bởi AI."
+            )
+        else:
+            max_desire_row = stats.loc[stats["Automation Desire Rating"].idxmax()]
+            st.markdown(
+                f"*   Nhóm tuổi **{max_desire_row[group_col]}** thể hiện mong muốn tự động hóa cao nhất (~{max_desire_row['Automation Desire Rating']:.2f}) "
+                "để giải phóng sức sáng tạo, vượt qua rào cản hành chính."
+            )
+
+        st.markdown("---")
+        st.markdown("### 🤖 Trợ lý AI Khuyến nghị & Phân tích chuyên sâu")
+        st.caption("AI sẽ kết hợp số liệu thực tế đang chọn ở trên với bối cảnh bài báo khoa học WORKBank để đưa ra khuyến nghị chi tiết.")
+
+        # Prepare context data
+        stats_str = "\n".join([f"- {row[group_col]}: Mong muốn tự động hóa = {row['Automation Desire Rating']:.2f}, Lo ngại an ninh việc làm = {row['Job Security Rating']:.2f}" for _, row in stats.iterrows()])
+        prompt_context = f"""
+Ngành nghề lọc: {selected_occ}
+Biến nhân khẩu học: {demographic_var}
+Số liệu khảo sát trung bình:
+{stats_str}
+"""
+        query = f"Phân tích ảnh hưởng của {demographic_var} đến Mong muốn Tự động hóa và Lo ngại An ninh việc làm trong ngành {selected_occ}."
+        system_instruction = """
+Bạn là một chuyên gia Nhân sự và AI trong ngành CNTT. Hãy phân tích và đưa ra khuyến nghị cực kỳ ngắn gọn, súc tích và đi thẳng vào vấn đề (tổng độ dài dưới 180 từ).
+Bố cục bắt buộc:
+1. **Khám phá chính (Key Insight)**: Nêu nhanh 2 điểm nổi bật nhất từ dữ liệu thực tế (sử dụng các con số cụ thể).
+2. **Kiến giải ngắn (Quick Explanation)**: Giải thích lý do (tại sao học vị/kinh nghiệm/giới tính lại ảnh hưởng) trong 2 câu.
+3. **Khuyến nghị hành động (Recommendations)**: Đưa ra tối đa 2-3 gạch đầu dòng hành động cụ thể, thiết thực cho doanh nghiệp.
+Tránh viết dài dòng, lan man hay lời chào mừng. Trả lời bằng tiếng Việt.
+"""
+        if st.button("✨ Yêu cầu AI phân tích dữ liệu & Khuyến nghị", key="btn_ai_insights_tab1"):
+            with st.chat_message("assistant"):
+                st.write_stream(generate_ai_insight_stream(prompt_context, query, system_instruction))
+
+    with tab2:
+        st.markdown("#### ❤️ Mối tương quan giữa Sự yêu thích (Enjoyment) và Mong muốn Tự động hóa")
+        st.markdown(
+            "Phân tích này khám phá quy luật tâm lý: Liệu người lao động IT muốn tự động hóa những tác vụ họ ghét "
+            "(Enjoyment thấp) hay họ muốn đẩy cả những việc họ yêu thích cho AI Agent?"
+        )
+
+        # Calculate averages per task
+        task_stats = merged_df.groupby(["Task ID", "Task"])[["Enjoyment Rating", "Automation Desire Rating"]].mean().reset_index()
+        corr = task_stats["Enjoyment Rating"].corr(task_stats["Automation Desire Rating"])
+
+        fig2 = px.scatter(
+            task_stats,
+            x="Enjoyment Rating",
+            y="Automation Desire Rating",
+            hover_data=["Task"],
+            labels={
+                "Enjoyment Rating": "Mức độ yêu thích tác vụ (Enjoyment, 1-5)",
+                "Automation Desire Rating": "Mong muốn tự động hóa (Desire, 1-5)"
+            },
+            title=f"Đồ thị tương quan Enjoyment vs. Automation Desire (Hệ số tương quan r = {corr:.2f})",
+            trendline="ols",
+            trendline_color_override="red"
+        )
+        fig2.update_layout(template="plotly_white")
+        st.plotly_chart(fig2, use_container_width=True)
+
+        st.markdown("##### 📊 Mong muốn tự động hóa trung bình chia theo điểm Yêu thích (Enjoyment Rating)")
+        enjoy_stats = merged_df.groupby("Enjoyment Rating")["Automation Desire Rating"].mean().reset_index()
+
+        fig2b = px.bar(
+            enjoy_stats,
+            x="Enjoyment Rating",
+            y="Automation Desire Rating",
+            labels={
+                "Enjoyment Rating": "Điểm Yêu thích (1 = Thấp nhất, 5 = Cao nhất)",
+                "Automation Desire Rating": "Điểm Mong muốn Tự động hóa Trung bình"
+            },
+            color_discrete_sequence=['#3498db']
+        )
+        fig2b.update_layout(yaxis=dict(range=[1, 5]), template="plotly_white")
+        st.plotly_chart(fig2b, use_container_width=True)
+
+        st.markdown("##### 💡 Khám phá quan trọng:")
+        # Get dynamic values from computed data
+        low_enjoy = enjoy_stats.loc[enjoy_stats["Enjoyment Rating"].idxmin(), "Automation Desire Rating"]
+        high_enjoy = enjoy_stats.loc[enjoy_stats["Enjoyment Rating"].idxmax(), "Automation Desire Rating"]
+        corr_type = "âm" if corr < 0 else "dương"
+        st.markdown(
+            f"*   **Hệ số tương quan là {corr:.2f} (Tương quan {corr_type} rõ rệt):** Khẳng định quy luật tâm lý cực kỳ mạnh mẽ. "
+            "Người lao động IT có xu hướng mong muốn tự động hóa cao nhất đối với những tác vụ họ ghét nhất "
+            f"(Enjoyment = 1, điểm mong muốn tự động hóa trung bình đạt **{low_enjoy:.2f}**). "
+            f"Ngược lại, đối với những tác vụ họ vô cùng yêu thích (Enjoyment = 5), điểm mong muốn tự động hóa giảm chỉ còn **{high_enjoy:.2f}**."
+            "\n*   **Khuyến nghị doanh nghiệp:** Khi triển khai AI Agent, doanh nghiệp nên bắt đầu bằng việc tự động hóa những tác vụ lặp đi lặp lại "
+            "và tẻ nhạt trước (vùng Enjoyment thấp) để vừa giải phóng năng suất vừa nhận được sự chào đón nồng nhiệt nhất của nhân viên."
+        )
+
+        st.markdown("---")
+        st.markdown("### 🤖 Trợ lý AI Khuyến nghị & Phân tích chuyên sâu")
+        st.caption("AI sẽ kết hợp số liệu thực tế đang chọn ở trên với bối cảnh bài báo khoa học WORKBank để đưa ra khuyến nghị chi tiết.")
+
+        # Prepare context data
+        enjoy_str = "\n".join([f"- Mức độ yêu thích = {row['Enjoyment Rating']}: Mong muốn tự động hóa trung bình = {row['Automation Desire Rating']:.2f}" for _, row in enjoy_stats.iterrows()])
+        prompt_context = f"""
+Ngành nghề lọc: {selected_occ}
+Hệ số tương quan (Pearson r) giữa Enjoyment Rating và Automation Desire Rating: {corr:.2f}
+Số liệu khảo sát trung bình:
+{enjoy_str}
+"""
+        query = f"Phân tích mối quan hệ giữa Sự yêu thích (Enjoyment) và Mong muốn Tự động hóa trong ngành {selected_occ}."
+        system_instruction = """
+Bạn là một chuyên gia về Tâm lý học lao động và Tương tác Người-AI (HAI). Hãy phân tích và đưa ra khuyến nghị cực kỳ ngắn gọn, súc tích và đi thẳng vào vấn đề (tổng độ dài dưới 180 từ).
+Bố cục bắt buộc:
+1. **Khám phá chính (Key Insight)**: Nêu nhanh xu hướng từ hệ số tương quan r và số liệu thực tế (sử dụng các con số cụ thể).
+2. **Kiến giải ngắn (Quick Explanation)**: Giải thích ngắn gọn về mặt tâm lý học lao động (tại sao nhân viên muốn giữ lại việc họ thích và đẩy việc họ ghét) trong 2 câu.
+3. **Khuyến nghị hành động (Recommendations)**: Đưa ra tối đa 2-3 gạch đầu dòng hành động cụ thể về thiết kế công việc và quản trị thay đổi.
+Tránh viết dài dòng, lan man hay lời chào mừng. Trả lời bằng tiếng Việt.
+"""
+        if st.button("✨ Yêu cầu AI phân tích dữ liệu & Khuyến nghị", key="btn_ai_insights_tab2"):
+            with st.chat_message("assistant"):
+                st.write_stream(generate_ai_insight_stream(prompt_context, query, system_instruction))
+
+    with tab3:
+        st.markdown("#### 🤖 Trải nghiệm sử dụng LLM thực tế ảnh hưởng gì đến Mong muốn Tự động hóa?")
+        st.markdown(
+            "Phân tích này so sánh xem trải nghiệm thực tế với mô hình ngôn ngữ lớn (LLM) thay đổi như thế nào "
+            "đối với nhận thức về khả năng tự động hóa và nhu cầu tự kiểm soát (HAS) của con người."
+        )
+
+        llm_var = st.selectbox(
+            "🔽 Chọn biến trải nghiệm LLM để xem:",
+            [
+                "Tần suất sử dụng LLM trong công việc (LLM Use in Work)",
+                "Mức độ quen thuộc với LLM (LLM Familiarity)"
+            ],
+            key="llm_var_select"
+        )
+
+        llm_col = "LLM Use in Work" if "Use in Work" in llm_var else "LLM Familiarity"
+
+        # Calculate stats
+        llm_stats = merged_df.groupby(llm_col)[["Automation Desire Rating", "Human Agency Scale Rating"]].mean().reset_index()
+
+        # Sort order for presentation
+        if llm_col == "LLM Use in Work":
+            llm_order = [
+                "No, I've never heard of them.",
+                "No, I have not used them for any work-related activities.",
+                "Yes, I have used them occasionally for specific tasks.",
+                "Yes, I use them every week in my work.",
+                "Yes, I use them every day in my work."
+            ]
+            llm_stats[llm_col] = pd.Categorical(llm_stats[llm_col], categories=llm_order, ordered=True)
+            llm_stats = llm_stats.sort_values(llm_col)
+        else:
+            fam_order = [
+                "No, I've never heard of them.",
+                "I have heard of them but don't know much about their functionalities.",
+                "I have some experience using them.",
+                "I use them regularly."
+            ]
+            llm_stats[llm_col] = pd.Categorical(llm_stats[llm_col], categories=fam_order, ordered=True)
+            llm_stats = llm_stats.sort_values(llm_col)
+
+        # Grouped Bar Chart
+        fig3 = go.Figure(data=[
+            go.Bar(
+                name='Mong muốn Tự động hóa (Automation Desire)',
+                x=llm_stats[llm_col],
+                y=llm_stats["Automation Desire Rating"],
+                marker_color='#9b59b6'
+            ),
+            go.Bar(
+                name='Yêu cầu kiểm soát của con người (Human Agency - HAS)',
+                x=llm_stats[llm_col],
+                y=llm_stats["Human Agency Scale Rating"],
+                marker_color='#34495e'
+            )
+        ])
+        fig3.update_layout(
+            barmode='group',
+            title=f"Ảnh hưởng của {llm_var} đến Mong muốn Tự động hóa & Quyền kiểm soát",
+            xaxis_title=llm_var,
+            yaxis_title="Điểm số đánh giá (Thang 1-5)",
+            yaxis=dict(range=[1, 5]),
+            template="plotly_white",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        st.plotly_chart(fig3, use_container_width=True)
+
+        st.markdown("##### 💡 Khám phá quan trọng:")
+        max_desire_row = llm_stats.loc[llm_stats["Automation Desire Rating"].idxmax()]
+        min_desire_row = llm_stats.loc[llm_stats["Automation Desire Rating"].idxmin()]
+        max_label = str(max_desire_row[llm_col])
+        min_label = str(min_desire_row[llm_col])
+        max_val = max_desire_row["Automation Desire Rating"]
+        min_val = min_desire_row["Automation Desire Rating"]
+
+        if llm_col == "LLM Use in Work":
+            st.markdown(
+                f"*   Nhóm **{max_label}** có mong muốn tự động hóa cao nhất (**{max_val:.2f}**), "
+                f"trong khi nhóm **{min_label}** có mong muốn thấp nhất (**{min_val:.2f}**)."
+                "\n*   **Ý nghĩa:** Trải nghiệm sử dụng AI thực tế giúp người lao động nhận ra tính hữu ích và giải phóng sức lao động của công cụ, "
+                "từ đó gia tăng mạnh mẽ mong muốn ứng dụng tự động hóa, phá tan rào cản e ngại công nghệ ban đầu."
+            )
+        else:
+            st.markdown(
+                f"*   Nhóm **{max_label}** có mong muốn tự động hóa vượt trội (**{max_val:.2f}**), "
+                f"trong khi nhóm **{min_label}** có mong muốn thấp nhất (**{min_val:.2f}**)."
+                "\n*   **Ý nghĩa:** Càng quen thuộc và hiểu rõ về khả năng thực tế của LLM, người lao động càng muốn ứng dụng tự động hóa, "
+                "chứng minh rằng việc đào tạo tăng cường hiểu biết về AI trong doanh nghiệp là chìa khóa để thúc đẩy quá trình chuyển đổi số."
+            )
+
+        st.markdown("---")
+        st.markdown("### 🤖 Trợ lý AI Khuyến nghị & Phân tích chuyên sâu")
+        st.caption("AI sẽ kết hợp số liệu thực tế đang chọn ở trên với bối cảnh bài báo khoa học WORKBank để đưa ra khuyến nghị chi tiết.")
+
+        # Prepare context data
+        llm_str = "\n".join([f"- {row[llm_col]}: Mong muốn tự động hóa = {row['Automation Desire Rating']:.2f}, Điểm kiểm soát con người (HAS) = {row['Human Agency Scale Rating']:.2f}" for _, row in llm_stats.iterrows()])
+        prompt_context = f"""
+Ngành nghề lọc: {selected_occ}
+Biến trải nghiệm LLM: {llm_var}
+Số liệu khảo sát trung bình:
+{llm_str}
+"""
+        query = f"Phân tích ảnh hưởng của {llm_var} đến Mong muốn Tự động hóa và Nhu cầu kiểm soát (Human Agency Scale - HAS) trong ngành {selected_occ}."
+        system_instruction = """
+Bạn là một chuyên gia Quản trị thay đổi và Mô hình Chấp nhận Công nghệ (TAM). Hãy phân tích và đưa ra khuyến nghị cực kỳ ngắn gọn, súc tích và đi thẳng vào vấn đề (tổng độ dài dưới 180 từ).
+Bố cục bắt buộc:
+1. **Khám phá chính (Key Insight)**: Nêu nhanh mức độ ảnh hưởng của trải nghiệm thực tế với LLM đến Mong muốn tự động hóa và HAS (sử dụng các con số cụ thể).
+2. **Kiến giải ngắn (Quick Explanation)**: Giải thích ngắn gọn tại sao trải nghiệm thực tế giúp xóa tan nỗi sợ mơ hồ và gia tăng sự sẵn sàng trong 2 câu.
+3. **Khuyến nghị hành động (Recommendations)**: Đưa ra tối đa 2-3 gạch đầu dòng hành động cụ thể về lộ trình đào tạo thích ứng công nghệ.
+Tránh viết dài dòng, lan man hay lời chào mừng. Trả lời bằng tiếng Việt.
+"""
+        if st.button("✨ Yêu cầu AI phân tích dữ liệu & Khuyến nghị", key="btn_ai_insights_tab3"):
+            with st.chat_message("assistant"):
+                st.write_stream(generate_ai_insight_stream(prompt_context, query, system_instruction))
+
+
 # ─────────────────────────────────────────────────────────────
 # MAIN APP
 # ─────────────────────────────────────────────────────────────
@@ -875,6 +1329,7 @@ def main():
             "3️⃣ Thang đo HAS — Worker vs Expert",
             "4️⃣ Dịch chuyển Kỹ năng",
             "💬 Chatbot WORKBank AI",
+            "✨ Nghiên Cứu Độc Lập (New Insights)",
         ],
         index=0,
         key="nav_radio",
@@ -914,6 +1369,9 @@ def main():
 
     elif page.startswith("💬") or "Chatbot" in page:
         page_chatbot()
+
+    elif page.startswith("✨") or "Nghiên Cứu" in page:
+        page_advanced_insights(desires, metadata)
 
 
 if __name__ == "__main__":
