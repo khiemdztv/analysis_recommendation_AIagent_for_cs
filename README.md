@@ -91,7 +91,7 @@ workbank/
 
 ```mermaid
 graph TD
-    subgraph Data Layer
+    subgraph Data_Layer ["Data Layer"]
         CSV1[(domain_worker_desires.csv)]
         CSV2[(domain_worker_metadata.csv)]
         CSV3[(expert_rated_technological_capability.csv)]
@@ -99,7 +99,7 @@ graph TD
         JSON[(paper_text.json)]
     end
 
-    subgraph Logic Layer (Streamlit App)
+    subgraph Logic_Layer ["Logic Layer (Streamlit App)"]
         Cache{{"@st.cache_data / @st.cache_resource"}}
         Router["Routing & Trang Chức năng"]
         Plotly["Engine vẽ biểu đồ Plotly"]
@@ -107,7 +107,7 @@ graph TD
         AI_Eng["Groq API Client (llama-3.3-70b)"]
     end
 
-    subgraph UI Layer (User Browser)
+    subgraph UI_Layer ["UI Layer (User Browser)"]
         UI["Sidebar & Content Area"]
     end
 
