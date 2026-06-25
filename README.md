@@ -72,10 +72,30 @@ workbank/
 *   **Minh bạch nguồn tin:** Hiển thị phần trích dẫn nguồn tài liệu tham khảo cụ thể dưới mỗi câu trả lời.
 
 ### 6. Trang 6: ✨ Nghiên Cứu Độc Lập (New Insights)
-*   **Chức năng:** Khai thác chuyên sâu bộ dữ liệu khảo sát thô để tìm ra các mối tương quan nhân khẩu học, tâm lý lao động và trải nghiệm công nghệ thực tế của nhân sự IT mà bài báo gốc chưa đề cập. Trang này được chia làm 3 phân hệ (Tab):
-    *   **Tab 1: Nhân khẩu học & An ninh việc làm:** Phân tích ảnh hưởng của Trình độ học vấn, Giới tính, Kinh nghiệm làm việc, và Nhóm tuổi đến Mong muốn Tự động hóa và Lo ngại An ninh việc làm. Tích hợp nút **AI phân tích** để nhận khuyến nghị HR cụ thể cho từng nhóm.
-    *   **Tab 2: Enjoyment vs. Tự động hóa:** Khảo sát mối tương quan tuyến tính (Pearson r) giữa sự yêu thích công việc (Enjoyment) và mong muốn tự động hóa. AI hỗ trợ đưa ra đề xuất thiết kế lại công việc (job redesign) giúp nâng cao trải nghiệm nhân viên.
-    *   **Tab 3: Trải nghiệm LLM & Quyền kiểm soát:** Đánh giá mức độ quen thuộc hoặc tần suất sử dụng LLM thực tế ảnh hưởng như thế nào đến sự cởi mở với tự động hóa và mong muốn kiểm soát (HAS). AI phân tích và đưa ra lộ trình đào tạo, quản trị thay đổi số cho doanh nghiệp.
+*   **Ý Tưởng & Động Lực Nghiên Cứu (Motivation & Research Context):**
+    *   *Tại sao lại có ý tưởng này?* Bài báo khoa học gốc (*WORKBank*, arXiv:2506.06576) chỉ tập trung phân tích khả năng của AI (expert-rated) và mong muốn tự động hóa của người lao động ở mức độ tác vụ chung cho toàn thị trường. Tuy nhiên, nghiên cứu này coi lực lượng lao động là một khối đồng nhất (homogeneous group), bỏ qua các yếu tố cá nhân như nhân khẩu học, động lực nội tại, và mức độ tiếp xúc thực tế với công nghệ.
+    *   Trong thực tế doanh nghiệp, việc triển khai AI Agent thành công phụ thuộc lớn vào **Tâm lý học lao động (Occupational Psychology)** và **Hành vi tổ chức (Organizational Behavior)** nhằm giảm thiểu sự kháng cự công nghệ (Change Resistance). Do đó, trang phân tích này được thiết kế để gộp dữ liệu thô từ khảo sát với thông tin nhân sự nhằm tìm ra các mối tương quan thực tế, giúp doanh nghiệp thiết kế lộ trình chuyển đổi số "Worker-Centric" (Lấy con người làm trung tâm).
+*   **Phương Pháp Kết Nối Dữ Liệu (Data Integration Method):**
+    *   Ý tưởng được hiện thực hóa bằng cách gộp (merge) dữ liệu thô cấp tác vụ với thông tin cá nhân của người tham gia khảo sát dựa trên khóa liên kết `["User ID", "Occupation (O*NET-SOC Title)"]` thông qua hàm [build_insights_df](file:///d:/Documents/Data%20Visualization/workbank/streamlit_app.py#L174-L185) trong tệp [streamlit_app.py](file:///d:/Documents/Data%20Visualization/workbank/streamlit_app.py).
+    *   **Tệp tin sử dụng:**
+        1.  [domain_worker_desires.csv](file:///d:/Documents/Data%20Visualization/workbank/domain_worker_desires.csv): Lưu trữ đánh giá của người lao động cho từng tác vụ cụ thể.
+        2.  [domain_worker_metadata.csv](file:///d:/Documents/Data%20Visualization/workbank/domain_worker_metadata.csv): Lưu trữ thông tin nhân khẩu học và mức độ tiếp xúc với LLM của người lao động.
+*   **Chi Tiết Các Phân Hệ (Tabs) & Dẫn Chứng Cột Dữ Liệu (Features Citation):**
+    *   **Tab 1: Nhân khẩu học & An ninh việc làm:**
+        *   *Ý nghĩa*: Đánh giá sự khác biệt trong thái độ đối với AI và nỗi lo sợ mất việc giữa các nhóm học vấn, giới tính, kinh nghiệm và độ tuổi khác nhau trong ngành IT.
+        *   *Tính toán & Dẫn chứng*:
+            *   **Nhóm phân tích (X-axis):** Lọc theo các cột từ [domain_worker_metadata.csv](file:///d:/Documents/Data%20Visualization/workbank/domain_worker_metadata.csv) gồm `Education` (Trình độ học vấn), `Gender` (Giới tính), `Experience` (Kinh nghiệm làm việc), và `Age` (Tuổi - được chia thành các nhóm tuổi).
+            *   **Chỉ số đo lường (Y-axis):** Tính toán giá trị trung bình (mean) của cột `Automation Desire Rating` (Mong muốn tự động hóa) và cột `Job Security Rating` (Mức độ lo ngại an ninh việc làm) lấy từ [domain_worker_desires.csv](file:///d:/Documents/Data%20Visualization/workbank/domain_worker_desires.csv).
+    *   **Tab 2: Enjoyment vs. Tự động hóa:**
+        *   *Ý nghĩa*: Khảo sát quy luật tâm lý học lao động dựa trên *Thuyết tự quyết (Self-Determination Theory)*. Người lao động có xu hướng muốn giữ lại những công việc mang lại động lực nội tại cao (Enjoyment cao) và muốn đẩy các tác vụ tẻ nhạt, lặp đi lặp lại (Enjoyment thấp) cho AI. Việc cố tình tự động hóa phần việc nhân viên yêu thích sẽ tạo ra sự kháng cự ngầm rất lớn.
+        *   *Tính toán & Dẫn chứng*:
+            *   Tính toán **Hệ số tương quan Pearson ($r$)** và vẽ biểu đồ phân tán (Scatter Plot) giữa cột `Enjoyment Rating` (Mức độ yêu thích tác vụ, thang 1-5) và cột `Automation Desire Rating` (Mong muốn tự động hóa, thang 1-5) từ tệp [domain_worker_desires.csv](file:///d:/Documents/Data%20Visualization/workbank/domain_worker_desires.csv).
+    *   **Tab 3: Trải nghiệm LLM & Quyền kiểm soát:**
+        *   *Ý nghĩa*: Giải thích bằng *Mô hình Chấp nhận Công nghệ (Technology Acceptance Model - TAM)*. Những người thực tế sử dụng LLM hàng ngày/hàng tuần có góc nhìn thực tế về năng lực của công cụ, từ đó sẵn sàng chuyển giao các công việc lặp đi lặp lại cho AI hơn so với nhóm chưa từng tiếp xúc (nhóm e ngại mơ hồ do tin đồn).
+        *   *Tính toán & Dẫn chứng*:
+            *   **Biến trải nghiệm (X-axis):** Cột `LLM Use in Work` (Tần suất sử dụng) hoặc cột `LLM Familiarity` (Mức độ quen thuộc) lấy từ [domain_worker_metadata.csv](file:///d:/Documents/Data%20Visualization/workbank/domain_worker_metadata.csv).
+            *   **Chỉ số đo lường (Y-axis):** Tính toán giá trị trung bình của cột `Automation Desire Rating` (Mong muốn tự động hóa) và cột `Human Agency Scale Rating` (Mức độ kiểm soát mong muốn của con người - HAS) lấy từ [domain_worker_desires.csv](file:///d:/Documents/Data%20Visualization/workbank/domain_worker_desires.csv).
+
 
 ---
 
