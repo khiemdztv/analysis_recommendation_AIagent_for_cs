@@ -29,8 +29,27 @@ workbank/
 ├── project_report_and_defense_guide.md # Hướng dẫn thuyết trình và câu hỏi bảo vệ dự án
 ├── requirements.txt        # Liệt kê các thư viện Python cần cài đặt
 ├── streamlit_app.py        # Mã nguồn chính của ứng dụng web Streamlit (routing, giao diện, logic)
-└── task_statement_with_metadata.csv # Dữ liệu các tác vụ, kỹ năng và mức lương tương ứng
+├── task_statement_with_metadata.csv # Dữ liệu các tác vụ, kỹ năng và mức lương tương ứng
+└── paper_test_prep_guide.md # Hướng dẫn ôn tập & 9 bài tập vẽ biểu đồ viết tay môn Trực quan hóa
 ```
+
+---
+
+## 📚 Hướng Dẫn Ôn Tập & Đề Thi Mẫu Viết Tay (Exam Prep & Study Guide)
+
+Để hỗ trợ chuẩn bị cho bài kiểm tra lập trình trên giấy (paper coding test) của môn **Trực quan hóa dữ liệu**, dự án cung cấp một tài liệu ôn tập toàn diện tại:
+👉 **[paper_test_prep_guide.md](file:///C:/Users/25/.gemini/antigravity-ide/brain/1fee0b74-fd1c-4967-bcec-649b30f7841f/paper_test_prep_guide.md)** (hoặc tệp tin `paper_test_prep_guide.md` tại thư mục gốc).
+
+Tài liệu này bao gồm **9 bài tập viết tay mẫu** từ cơ bản đến nâng cao:
+1.  **Histogram (`px.histogram`):** Trực quan hóa phân phối tuổi theo giới tính.
+2.  **Bar Chart (`px.bar`):** Gom nhóm dữ liệu (`groupby`) và vẽ biểu đồ cột.
+3.  **Scatter Plot (`px.scatter`):** Tương quan lương vs độ quan trọng, phân màu theo loại nhiệm vụ.
+4.  **Box Plot (`px.box`):** So sánh phân phối mong muốn tự động hóa theo học vấn sau khi ghép bảng (`pd.merge`).
+5.  **Interactive Filter (`st.selectbox` & `px.pie`):** Lọc theo nghề nghiệp được chọn và vẽ biểu đồ tròn.
+6.  **Line Chart (`px.line`):** Phân tích thời gian và vẽ xu thế số lượng khảo sát qua các ngày.
+7.  **Correlation Heatmap (`px.imshow`):** Tính toán và trực quan hóa ma trận tương quan Pearson ($r$).
+8.  **Streamlit Layout (`st.columns` & `px.violin`):** Chia layout giao diện thành 2 cột dọc hiển thị song song Histogram và Violin Plot.
+9.  **Interactive Controls (`st.slider` & `st.multiselect`):** Kết hợp thanh trượt khoảng tuổi và lọc đa giới tính để cập nhật biểu đồ.
 
 ---
 
