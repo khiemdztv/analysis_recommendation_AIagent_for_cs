@@ -30,7 +30,8 @@ workbank/
 ├── requirements.txt        # Liệt kê các thư viện Python cần cài đặt
 ├── streamlit_app.py        # Mã nguồn chính của ứng dụng web Streamlit (routing, giao diện, logic)
 ├── task_statement_with_metadata.csv # Dữ liệu các tác vụ, kỹ năng và mức lương tương ứng
-└── operational_workflow_guide.md # Hướng dẫn chi tiết luồng hoạt động & phân tích kỹ thuật hệ thống
+├── operational_workflow_guide.md # Hướng dẫn chi tiết luồng hoạt động & phân tích kỹ thuật hệ thống
+└── README_INDEPENDENT_RESEARCH.md # Hướng dẫn chi tiết ý tưởng và luồng hoạt động phần Nghiên cứu độc lập
 ```
 
 ---
