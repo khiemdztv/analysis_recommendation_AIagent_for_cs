@@ -926,6 +926,23 @@ def page_advanced_insights(desires_df, metadata_df):
     ])
 
     with tab1:
+        # ── 💡 Đề Xuất Nghiên Cứu ──
+        with st.expander("💡 **Đề Xuất Nghiên Cứu (Research Proposal):** Tại sao cần phân tích này?", expanded=False):
+            st.markdown(
+                "**Hạn chế của bài báo gốc** (*WORKBank*, arXiv:2506.06576):\n\n"
+                "Bài báo thu thập dữ liệu nhân khẩu học nhưng **chỉ dùng làm biến kiểm soát** trong mô hình hồi quy "
+                "(Appendix B, Table 1), không trực quan hóa hay diễn giải theo nhóm. Chỉ số *Job Security* chỉ được nhắc "
+                "**1 câu duy nhất** (*\"ρ = −0.22\"*, Section 3.2). Lý do muốn tự động hóa (Figure 4b) chỉ phân tích ở mức **toàn mẫu**.\n\n"
+                "**3 phát kiến mới của phân tích này:**\n\n"
+                "1. 📊 **So sánh Desire vs. Job Security theo nhóm** — Bài báo gốc coi lực lượng lao động là khối đồng nhất\n"
+                "2. 🎯 **Ma Trận Sẵn Sàng Nhân Sự** — Áp dụng triết lý 4 phân vùng (vốn cho *tác vụ*) sang **con người**, "
+                "giải quyết bài toán *\"Ai cần gì khi deploy AI?\"*\n"
+                "3. 📢 **Phân Tích Động Cơ theo nhóm** — Chia lý do muốn tự động hóa theo nhóm nhân khẩu để "
+                "*cá nhân hóa truyền thông nội bộ*\n\n"
+                "**Cơ sở lý thuyết:** Prosci ADKAR Model (Quản trị thay đổi), Self-Determination Theory — Deci & Ryan, "
+                "OECD 2024 (*AI and the Future of Skills*), ILO 2024 (*Generative AI and Jobs*)."
+            )
+
         st.markdown("#### 📊 Ảnh hưởng của Nhân khẩu học đến Mong muốn & An ninh việc làm")
         st.markdown(
             "Phân tích này đối chiếu các biến nhân khẩu học của người lao động IT để xem các nhóm tuổi, giới tính, "
@@ -1039,30 +1056,268 @@ def page_advanced_insights(desires_df, metadata_df):
                 "để giải phóng sức sáng tạo, vượt qua rào cản hành chính."
             )
 
-        st.markdown("---")
-        st.markdown("### 🤖 Trợ lý AI Khuyến nghị & Phân tích chuyên sâu")
-        st.caption("AI sẽ kết hợp số liệu thực tế đang chọn ở trên với bối cảnh bài báo khoa học WORKBank để đưa ra khuyến nghị chi tiết.")
-
-        # Prepare context data
-        stats_str = "\n".join([f"- {row[group_col]}: Mong muốn tự động hóa = {row['Automation Desire Rating']:.2f}, Lo ngại an ninh việc làm = {row['Job Security Rating']:.2f}" for _, row in stats.iterrows()])
-        prompt_context = f"""
-Ngành nghề lọc: {selected_occ}
-Biến nhân khẩu học: {demographic_var}
-Số liệu khảo sát trung bình:
-{stats_str}
-"""
-        query = f"Phân tích ảnh hưởng của {demographic_var} đến Mong muốn Tự động hóa và Lo ngại An ninh việc làm trong ngành {selected_occ}."
-        system_instruction = """
-Bạn là một chuyên gia Nhân sự và AI trong ngành CNTT. Hãy phân tích và đưa ra khuyến nghị cực kỳ ngắn gọn, súc tích và đi thẳng vào vấn đề (tổng độ dài dưới 180 từ).
+        # 🤖 AI Phân Tích 1: Số liệu & Thái độ
+        st.markdown("<br>", unsafe_allow_html=True)
+        part1_stats_str = "\n".join([
+            f"- Nhóm {row[group_col]}: Mong muốn tự động hóa (Desire) = {row['Automation Desire Rating']:.2f}/5, Lo ngại an ninh việc làm (Job Security) = {row['Job Security Rating']:.2f}/5"
+            for _, row in stats.iterrows()
+        ])
+        part1_prompt = f"Ngành nghề lọc: {selected_occ}\nBiến nhân khẩu học đang chọn: {demographic_var}\n\nDỮ LIỆU THỰC TẾ TRÊN BIỂU ĐỒ:\n{part1_stats_str}"
+        part1_system = """
+Bạn là một chuyên gia phân tích dữ liệu nhân sự ngành CNTT. Hãy phân tích các con số thực tế trên và trả lời bằng tiếng Việt (dưới 200 từ).
 Bố cục bắt buộc:
-1. **Khám phá chính (Key Insight)**: Nêu nhanh 2 điểm nổi bật nhất từ dữ liệu thực tế (sử dụng các con số cụ thể).
-2. **Kiến giải ngắn (Quick Explanation)**: Giải thích lý do (tại sao học vị/kinh nghiệm/giới tính lại ảnh hưởng) trong 2 câu.
-3. **Khuyến nghị hành động (Recommendations)**: Đưa ra tối đa 2-3 gạch đầu dòng hành động cụ thể, thiết thực cho doanh nghiệp.
-Tránh viết dài dòng, lan man hay lời chào mừng. Trả lời bằng tiếng Việt.
+1. **Phát hiện quan trọng (Key Finding)**: Chỉ ra nhóm nào có Desire cao nhất/thấp nhất, nhóm nào lo lắng Job Security nhất/ít nhất. Sử dụng số liệu chính xác để so sánh.
+2. **Kiến giải thực tế (Insight)**: Giải thích lý do cụ thể tại sao nhóm nhân khẩu học đó lại có thái độ như vậy (Ví dụ: tại sao người kinh nghiệm ít lại lo sợ hơn, hoặc tại sao học vị cao lại muốn tự động hóa nhiều hơn).
+3. **Khuyến nghị tuyển dụng/quản lý (Actionable Advice)**: Đưa ra 1-2 hành động cụ thể cho HR manager đối với các nhóm cụ thể.
+Không viết chung chung hay nói lý thuyết suông. Hãy bám sát các số liệu đã cung cấp.
 """
-        if st.button("✨ Yêu cầu AI phân tích dữ liệu & Khuyến nghị", key="btn_ai_insights_tab1"):
+        if st.button("✨ AI phân tích Số liệu & Thái độ theo nhóm", key="btn_ai_part1"):
             with st.chat_message("assistant"):
-                st.write_stream(generate_ai_insight_stream(prompt_context, query, system_instruction))
+                st.write_stream(generate_ai_insight_stream(part1_prompt, f"Phân tích thái độ AI theo {demographic_var} trong ngành {selected_occ}.", part1_system))
+
+        # ─────────────────────────────────────────────────────────────
+        # 🎯 MA TRẬN SẴN SÀNG NHÂN SỰ (Worker Readiness Matrix)
+        # ─────────────────────────────────────────────────────────────
+        st.markdown("---")
+        st.markdown("#### 🎯 Ma Trận Sẵn Sàng Nhân Sự (Worker Readiness Matrix)")
+        st.markdown(
+            "Áp dụng triết lý **4 phân vùng** của bài báo gốc (vốn dùng cho *tác vụ*) sang phân loại **con người**. "
+            "Mỗi điểm đại diện cho 1 nhóm nhân khẩu học. Ngưỡng: **3.0** (trung điểm thang đo, nhất quán với bài báo)."
+        )
+
+        readiness_sample_counts = df_plot.groupby(group_col, observed=False).size().reset_index(name='N')
+        stats_matrix = stats.merge(readiness_sample_counts, on=group_col, how='left')
+        stats_matrix['N'] = stats_matrix['N'].fillna(0).astype(int)
+
+        _RT = 3.0  # Readiness Threshold
+
+        def _assign_profile(row):
+            d, s = row["Automation Desire Rating"], row["Job Security Rating"]
+            if d >= _RT and s < _RT:
+                return "🟢 Ready Adopters"
+            elif d >= _RT and s >= _RT:
+                return "🟡 Anxious Innovators"
+            elif d < _RT and s < _RT:
+                return "⚪ Passive Observers"
+            else:
+                return "🔴 Threatened Resistors"
+
+        stats_matrix["Profile"] = stats_matrix.apply(_assign_profile, axis=1)
+
+        _profile_colors = {
+            "🟢 Ready Adopters": "#2ecc71",
+            "🟡 Anxious Innovators": "#f39c12",
+            "⚪ Passive Observers": "#95a5a6",
+            "🔴 Threatened Resistors": "#e74c3c",
+        }
+
+        fig_matrix = go.Figure()
+        fig_matrix.update_layout(shapes=[
+            dict(type="rect", x0=_RT, x1=5.5, y0=0.5, y1=_RT,
+                 fillcolor="rgba(46,204,113,0.10)", line=dict(width=0), layer="below"),
+            dict(type="rect", x0=_RT, x1=5.5, y0=_RT, y1=5.5,
+                 fillcolor="rgba(243,156,18,0.10)", line=dict(width=0), layer="below"),
+            dict(type="rect", x0=0.5, x1=_RT, y0=0.5, y1=_RT,
+                 fillcolor="rgba(149,165,166,0.10)", line=dict(width=0), layer="below"),
+            dict(type="rect", x0=0.5, x1=_RT, y0=_RT, y1=5.5,
+                 fillcolor="rgba(231,76,60,0.10)", line=dict(width=0), layer="below"),
+        ])
+
+        for profile, color in _profile_colors.items():
+            subset = stats_matrix[stats_matrix["Profile"] == profile]
+            if subset.empty:
+                continue
+            sizes = subset["N"].apply(lambda n: min(16 + int(np.sqrt(max(n, 1)) * 2), 45)).tolist()
+            fig_matrix.add_trace(go.Scatter(
+                x=subset["Automation Desire Rating"],
+                y=subset["Job Security Rating"],
+                mode="markers+text",
+                name=profile,
+                marker=dict(size=sizes, color=color, opacity=0.9, line=dict(width=2, color="white")),
+                text=subset[group_col].astype(str).apply(lambda x: x[:22]),
+                textposition="top center",
+                textfont=dict(size=9, family="Inter"),
+                customdata=np.stack([subset[group_col].astype(str), subset["N"].astype(str)], axis=-1),
+                hovertemplate=(
+                    "<b>%{customdata[0]}</b><br>"
+                    "Mong muốn TĐH: %{x:.2f}<br>"
+                    "Lo ngại ANVL: %{y:.2f}<br>"
+                    "Số mẫu: %{customdata[1]}<extra></extra>"
+                ),
+            ))
+
+        fig_matrix.add_hline(y=_RT, line_dash="dot", line_color="rgba(0,0,0,0.25)", line_width=1)
+        fig_matrix.add_vline(x=_RT, line_dash="dot", line_color="rgba(0,0,0,0.25)", line_width=1)
+        fig_matrix.update_layout(
+            annotations=[
+                dict(x=4.25, y=0.7, text="🟢 Ready Adopters<br><i>Deploy ngay</i>", showarrow=False,
+                     font=dict(size=10, color="#27ae60", family="Inter"), bgcolor="rgba(255,255,255,0.8)"),
+                dict(x=4.25, y=5.3, text="🟡 Anxious Innovators<br><i>Muốn nhưng sợ mất việc</i>", showarrow=False,
+                     font=dict(size=10, color="#e67e22", family="Inter"), bgcolor="rgba(255,255,255,0.8)"),
+                dict(x=1.5, y=0.7, text="⚪ Passive Observers<br><i>Thờ ơ — Cần training</i>", showarrow=False,
+                     font=dict(size=10, color="#7f8c8d", family="Inter"), bgcolor="rgba(255,255,255,0.8)"),
+                dict(x=1.5, y=5.3, text="🔴 Threatened Resistors<br><i>Kháng cự — Cần hỗ trợ</i>", showarrow=False,
+                     font=dict(size=10, color="#c0392b", family="Inter"), bgcolor="rgba(255,255,255,0.8)"),
+            ],
+            template="plotly_white", height=550,
+            xaxis=dict(title="Mong muốn Tự động hóa (1-5)", range=[0.5, 5.5], dtick=1, gridcolor="rgba(0,0,0,0.06)"),
+            yaxis=dict(title="Lo ngại An ninh việc làm (1-5)", range=[0.5, 5.5], dtick=1, gridcolor="rgba(0,0,0,0.06)"),
+            legend=dict(orientation="h", yanchor="bottom", y=-0.20, xanchor="center", x=0.5),
+            margin=dict(t=30, b=80),
+        )
+        st.plotly_chart(fig_matrix, use_container_width=True, key="scatter_readiness_matrix")
+
+        st.markdown("##### 💡 Diễn giải 4 Profile & Chiến lược ADKAR:")
+        col_r1, col_r2 = st.columns(2)
+        with col_r1:
+            st.markdown(
+                "🟢 **Ready Adopters** (Desire ≥ 3, Security < 3): Deploy AI ngay, biến thành **đại sứ AI**. "
+                "*ADKAR: đã có Awareness + Desire → cần Knowledge + Ability.*"
+            )
+            st.markdown(
+                "🟡 **Anxious Innovators** (Desire ≥ 3, Security ≥ 3): Cần **cam kết an ninh việc làm** trước. "
+                "*Nghịch lý: muốn AI nhưng sợ mất việc.*"
+            )
+        with col_r2:
+            st.markdown(
+                "⚪ **Passive Observers** (Desire < 3, Security < 3): Cần chương trình **trải nghiệm AI** sớm. "
+                "*ADKAR: thiếu Awareness → tăng nhận thức.*"
+            )
+            st.markdown(
+                "🔴 **Threatened Resistors** (Desire < 3, Security ≥ 3): **Ưu tiên hỗ trợ cao nhất**: "
+                "tái đào tạo, cam kết không sa thải. *ADKAR: thiếu A + D.*"
+            )
+
+        _profile_parts = []
+        for p in ["🟢 Ready Adopters", "🟡 Anxious Innovators", "⚪ Passive Observers", "🔴 Threatened Resistors"]:
+            g = stats_matrix[stats_matrix["Profile"] == p][group_col].astype(str).tolist()
+            if g:
+                _profile_parts.append(f"**{p}**: {', '.join(g)}")
+        if _profile_parts:
+            st.info("**Kết quả phân loại:** " + " | ".join(_profile_parts))
+
+        # 🤖 AI Phân Tích 2: Ma Trận Sẵn Sàng
+        st.markdown("<br>", unsafe_allow_html=True)
+        part2_readiness_str = "\n".join([
+            f"- Nhóm {row[group_col]}: Profile {row['Profile']} (Số lượng mẫu N={row['N']}, Desire={row['Automation Desire Rating']:.2f}/5, Security={row['Job Security Rating']:.2f}/5)"
+            for _, row in stats_matrix.iterrows()
+        ])
+        part2_prompt = f"Ngành nghề lọc: {selected_occ}\nBiến nhân khẩu học đang chọn: {demographic_var}\n\nPHÂN LOẠI PROFILE SẴN SÀNG (Worker Readiness Matrix):\n{part2_readiness_str}"
+        part2_system = """
+Bạn là một chuyên gia quản trị thay đổi nhân sự (Change Management). Hãy phân tích kết quả phân loại Profile trên và trả lời bằng tiếng Việt (dưới 220 từ).
+Bố cục bắt buộc:
+1. **Phát hiện phân vùng (Matrix Insights)**: Chỉ ra chính xác các nhóm nhân khẩu học thuộc về phân vùng nào (Ready Adopters, Anxious Innovators, Passive Observers, Threatened Resistors).
+2. **Chiến lược Quản trị Thay đổi (ADKAR strategy)**: Thiết kế giải pháp cụ thể cho ít nhất 2 profile nổi bật xuất hiện trong dữ liệu (ví dụ: cần làm gì cho nhóm Anxious Innovators để giảm lo sợ, cần làm gì cho Ready Adopters để họ dẫn dắt sự thay đổi).
+Bám sát tên nhóm và kết quả phân loại từ dữ liệu thực tế. Tránh lý thuyết suông.
+"""
+        if st.button("✨ AI phân tích Ma Trận Sẵn Sàng & Hành động ADKAR", key="btn_ai_part2"):
+            with st.chat_message("assistant"):
+                st.write_stream(generate_ai_insight_stream(part2_prompt, f"Phân tích Ma trận sẵn sàng nhân sự theo {demographic_var} trong ngành {selected_occ}.", part2_system))
+
+        # ─────────────────────────────────────────────────────────────
+        # 📊 PHÂN TÍCH ĐỘNG CƠ TỰ ĐỘNG HÓA (Motivation Breakdown)
+        # ─────────────────────────────────────────────────────────────
+        st.markdown("---")
+        st.markdown("#### 📊 Phân Tích Động Cơ Tự Động Hóa theo Nhóm (Motivation Breakdown)")
+        st.markdown(
+            "Bài báo gốc phân tích lý do muốn tự động hóa ở mức **toàn mẫu** (Figure 4b: 69% chọn 'Free Time'). "
+            "Phân tích này chia theo **nhóm nhân khẩu** → phát hiện động cơ khác biệt → truyền thông cá nhân hóa."
+        )
+
+        _reason_map = {
+            "Reasons for Automation Desire - Free Time": "Giải phóng thời gian",
+            "Reasons for Automation Desire - Repetitive": "Việc lặp lại",
+            "Reasons for Automation Desire - Human Error": "Giảm lỗi người",
+            "Reasons for Automation Desire - Stress": "Giảm căng thẳng",
+            "Reasons for Automation Desire - Difficulty": "Việc quá khó",
+            "Reasons for Automation Desire - Scale": "Mở rộng quy mô",
+        }
+        _avail_reasons = {k: v for k, v in _reason_map.items() if k in df_plot.columns}
+
+        _motivation_ctx = ""
+        if _avail_reasons:
+            _reason_records = []
+            for grp_name, grp_df in df_plot.groupby(group_col, observed=False):
+                if len(grp_df) == 0:
+                    continue
+                for col, label in _avail_reasons.items():
+                    _tc = grp_df[col].apply(lambda x: x is True or str(x).strip().lower() == 'true').sum()
+                    _pct = (_tc / len(grp_df) * 100)
+                    _reason_records.append({"Nhóm": str(grp_name), "Lý do": label, "Tỷ lệ (%)": round(_pct, 1)})
+
+            _reason_df = pd.DataFrame(_reason_records)
+
+            fig_motiv = px.bar(
+                _reason_df, x="Nhóm", y="Tỷ lệ (%)", color="Lý do", barmode="group",
+                color_discrete_sequence=["#2ecc71", "#3498db", "#e74c3c", "#f39c12", "#9b59b6", "#1abc9c"],
+            )
+            fig_motiv.update_layout(
+                template="plotly_white", height=500,
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                xaxis_title=demographic_var, yaxis_title="Tỷ lệ chọn lý do (%)",
+            )
+            st.plotly_chart(fig_motiv, use_container_width=True, key="bar_motivation_breakdown")
+
+            st.markdown("##### 💡 Khám phá quan trọng:")
+            _pivot_r = _reason_df.pivot(index="Nhóm", columns="Lý do", values="Tỷ lệ (%)")
+            if not _pivot_r.empty and len(_pivot_r) > 1:
+                _rv = _pivot_r.var()
+                _most_varied = _rv.idxmax()
+                st.markdown(
+                    f"*   **Lý do có sự khác biệt lớn nhất giữa các nhóm:** \"{_most_varied}\" "
+                    f"(phương sai = {_rv[_most_varied]:.1f}). Các nhóm nhân khẩu có "
+                    f"**động cơ tự động hóa khác nhau rõ rệt** → cần thiết kế truyền thông riêng."
+                )
+                if "Giải phóng thời gian" in _pivot_r.columns:
+                    _mx = _pivot_r["Giải phóng thời gian"].idxmax()
+                    _mx_v = _pivot_r["Giải phóng thời gian"].max()
+                    _mn = _pivot_r["Giải phóng thời gian"].idxmin()
+                    _mn_v = _pivot_r["Giải phóng thời gian"].min()
+                    st.markdown(
+                        f"*   Nhóm **{_mx}** chọn \"Giải phóng thời gian\" nhiều nhất ({_mx_v:.1f}%), "
+                        f"nhóm **{_mn}** chỉ {_mn_v:.1f}%. "
+                        f"Bài báo gốc báo cáo 69% toàn mẫu — con số thực tế **khác biệt đáng kể** giữa các nhóm."
+                    )
+
+            _motivation_ctx = "\n".join([
+                f"- {row['Nhóm']} → {row['Lý do']}: {row['Tỷ lệ (%)']:.1f}%"
+                for _, row in _reason_df.iterrows()
+            ])
+        else:
+            st.info("Không tìm thấy cột dữ liệu lý do tự động hóa trong bộ dữ liệu hiện tại.")
+
+        # 🤖 AI Phân Tích 3: Động cơ tự động hóa
+        st.markdown("<br>", unsafe_allow_html=True)
+        part3_prompt = f"Ngành nghề lọc: {selected_occ}\nBiến nhân khẩu học đang chọn: {demographic_var}\n\nTỶ LỆ CHỌN LÝ DO MUỐN TỰ ĐỘNG HÓA CỦA CÁC NHÓM (%):\n{_motivation_ctx if _motivation_ctx else 'Không có dữ liệu.'}"
+        part3_system = """
+Bạn là một chuyên gia tâm lý học hành vi tổ chức. Hãy phân tích động cơ muốn tự động hóa của các nhóm lao động và trả lời bằng tiếng Việt (dưới 200 từ).
+Bố cục bắt buộc:
+1. **Phát hiện động cơ (Motivation Patterns)**: Chỉ ra sự khác biệt lớn nhất về lý do muốn tự động hóa giữa các nhóm (ví dụ: nhóm nào ưu tiên giải phóng thời gian nhất, nhóm nào muốn giảm căng thẳng/sai sót). Dùng số phần trăm cụ thể.
+2. **Kiến giải tâm lý (Self-Determination Theory)**: Liên hệ hành vi này với nhu cầu Autonomy (Tự chủ - giải phóng thời gian), Competence (Năng lực - giảm sai sót/độ khó) hoặc Relatedness (Kết nối - giảm stress).
+3. **Cá nhân hóa truyền thông (Communication Strategy)**: Khuyến nghị 1-2 cách truyền thông nội bộ khác nhau cho các nhóm để họ đồng thuận khi giới thiệu công cụ AI mới.
+Hãy bám sát các số liệu tỷ lệ phần trăm được cung cấp.
+"""
+        if _avail_reasons:
+            if st.button("✨ AI phân tích Động cơ & Chiến lược truyền thông", key="btn_ai_part3"):
+                with st.chat_message("assistant"):
+                    st.write_stream(generate_ai_insight_stream(part3_prompt, f"Phân tích động cơ muốn tự động hóa theo {demographic_var} trong ngành {selected_occ}.", part3_system))
+
+        # ─── 📚 Khung Lý Thuyết ───
+        st.markdown("<br>", unsafe_allow_html=True)
+        with st.expander("📚 Khung Lý Thuyết & Tài Liệu Tham Khảo", expanded=False):
+            st.markdown(
+                "**1. Prosci ADKAR® Model** (Quản trị thay đổi):\n"
+                "- **A**wareness → **D**esire → **K**nowledge → **A**bility → **R**einforcement\n"
+                "- Mỗi Profile trong Ma Trận Sẵn Sàng tương ứng với giai đoạn ADKAR mà nhóm đó đang thiếu\n\n"
+                "**2. Self-Determination Theory** — Deci & Ryan (1985):\n"
+                "- 3 nhu cầu nội tại: Autonomy, Competence, Relatedness\n"
+                "- 'Free Time' → Autonomy | 'Difficulty/Error' → Competence | 'Stress' → Relatedness\n\n"
+                "**3. Tài liệu tham khảo:**\n"
+                "- OECD (2024): *AI and the Future of Skills* — AI tác động khác biệt theo tuổi, giới, học vấn\n"
+                "- ILO (2024): *Generative AI and Jobs* — Phụ nữ tập trung ở vai trò dễ bị tự động hóa\n"
+                "- Polsl.pl (2024): Trình độ học vấn cao giúp giảm AI anxiety\n"
+                "- Prosci Research: Dự án có quản trị thay đổi → tỷ lệ thành công cao hơn 6 lần"
+            )
 
     with tab2:
         st.markdown("#### ❤️ Mối tương quan giữa Sự yêu thích (Enjoyment) và Mong muốn Tự động hóa")
