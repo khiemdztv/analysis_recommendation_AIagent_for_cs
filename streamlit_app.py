@@ -189,7 +189,7 @@ def build_insights_df(desires, metadata):
 # PAGE RENDERERS
 # ─────────────────────────────────────────────────────────────
 
-def page_landscape(landscape_df):
+def page_landscape(landscape_df, selected_occ):
     """Prompt 1: Desire-Capability Landscape Scatter Plot."""
     st.markdown("### 📊 Cảnh quan Tự động hóa — Desire vs Capability")
     st.markdown(
@@ -197,12 +197,6 @@ def page_landscape(landscape_df):
         "với **khả năng AI được chuyên gia đánh giá** (trục X) cho các tác vụ IT. Ngưỡng phân chia: 3.0."
     )
 
-    selected_occ = st.selectbox(
-        "🔽 Chọn ngành nghề cần lọc (Mặc định: Tất cả):",
-        ["✨ Tất cả"] + IT_OCCUPATIONS,
-        index=0,
-        key="landscape_occ_filter"
-    )
     if selected_occ != "✨ Tất cả":
         landscape_df = landscape_df[landscape_df["Occupation"] == selected_occ]
 
@@ -303,7 +297,7 @@ def page_landscape(landscape_df):
         )
 
 
-def page_mismatch(landscape_df):
+def page_mismatch(landscape_df, selected_occ):
     """Prompt 2: Task distribution bar chart across quadrants."""
     st.markdown("### 📉 Phân bố Tác vụ theo Vùng Cảnh quan — Phân tích Bất cân đối")
     st.markdown(
@@ -311,12 +305,6 @@ def page_mismatch(landscape_df):
         "giúp nhận diện sự **bất cân đối** trong nỗ lực tự động hóa."
     )
 
-    selected_occ = st.selectbox(
-        "🔽 Chọn ngành nghề cần lọc (Mặc định: Tất cả):",
-        ["✨ Tất cả"] + IT_OCCUPATIONS,
-        index=0,
-        key="mismatch_occ_filter"
-    )
     if selected_occ != "✨ Tất cả":
         landscape_df = landscape_df[landscape_df["Occupation"] == selected_occ]
 
@@ -416,7 +404,7 @@ def page_mismatch(landscape_df):
     )
 
 
-def page_has_spectrum(has_df):
+def page_has_spectrum(has_df, selected_occ):
     """Prompt 3: HAS Spectrum — Worker vs Expert comparison."""
     st.markdown("### 📈 Thang đo Tác nhân Con người (HAS) — Worker vs Expert")
     st.markdown(
@@ -424,12 +412,9 @@ def page_has_spectrum(has_df):
         "giữa góc nhìn **người lao động** (Worker) và **chuyên gia AI** (Expert) cho từng ngành nghề IT."
     )
 
-    selected_occ = st.selectbox(
-        "🔽 Chọn ngành nghề IT:",
-        IT_OCCUPATIONS,
-        index=0,
-        key="has_selectbox",
-    )
+    if selected_occ == "✨ Tất cả":
+        st.warning("⚠️ Vui lòng chọn một ngành nghề CNTT cụ thể ở thanh bên (sidebar) để xem biểu đồ so sánh HAS.")
+        return
 
     occ_data = has_df[has_df["Occupation"] == selected_occ].sort_values("HAS_Level")
 
@@ -714,20 +699,7 @@ def page_chatbot():
         
     retriever = get_retriever()
     
-    import os
-    # Load Groq API Key from Streamlit secrets or environment variables
-    try:
-        api_key = st.secrets.get("GROQ_API_KEY", "") or os.environ.get("GROQ_API_KEY", "")
-    except Exception:
-        api_key = os.environ.get("GROQ_API_KEY", "")
-    
-    # Fallback to local file for development
-    if not api_key:
-        try:
-            with open("api_key.txt", "r") as f:
-                api_key = f.read().strip()
-        except FileNotFoundError:
-            pass
+    api_key = get_groq_api_key()
             
     model_name = "llama-3.3-70b-versatile"
     
@@ -834,12 +806,27 @@ def get_global_paper_retriever(json_path):
 
 def get_groq_api_key():
     import os
+    from pathlib import Path
     api_key = ""
-    try:
-        api_key = st.secrets.get("GROQ_API_KEY", "") or os.environ.get("GROQ_API_KEY", "")
-    except Exception:
-        api_key = os.environ.get("GROQ_API_KEY", "")
     
+    # Check if streamlit secrets file exists before accessing st.secrets
+    # to avoid the red warning box
+    has_secrets_file = False
+    try:
+        if Path(".streamlit/secrets.toml").exists() or (Path.home() / ".streamlit" / "secrets.toml").exists():
+            has_secrets_file = True
+    except Exception:
+        pass
+        
+    if has_secrets_file:
+        try:
+            api_key = st.secrets.get("GROQ_API_KEY", "")
+        except Exception:
+            pass
+            
+    if not api_key:
+        api_key = os.environ.get("GROQ_API_KEY", "")
+        
     if not api_key:
         try:
             with open("api_key.txt", "r") as f:
@@ -898,19 +885,12 @@ DỮ LIỆU ĐANG ĐƯỢC LỌC VÀ HIỂN THỊ TRÊN BIỂU ĐỒ (DỮ LIỆ
         yield f"Đã xảy ra lỗi khi gọi Groq API: {str(e)}"
 
 
-def page_advanced_insights(desires_df, metadata_df):
+def page_advanced_insights(desires_df, metadata_df, selected_occ, demographic_var):
     """Trang ✨ Nghiên Cứu Độc Lập (New Insights)"""
     st.markdown("### ✨ Nghiên Cứu Độc Lập & Phát Kiến Mới")
     st.markdown(
         "Khai thác chuyên sâu bộ dữ liệu khảo sát thô để tìm ra các mối tương quan về nhân khẩu học, "
         "tâm lý lao động và trải nghiệm công nghệ thực tế của nhân sự IT mà bài báo gốc chưa đề cập."
-    )
-
-    selected_occ = st.selectbox(
-        "🔽 Chọn ngành nghề cần lọc (Mặc định: Tất cả):",
-        ["✨ Tất cả"] + IT_OCCUPATIONS,
-        index=0,
-        key="insights_occ_filter"
     )
 
     # Load and merge data
@@ -947,17 +927,6 @@ def page_advanced_insights(desires_df, metadata_df):
         st.markdown(
             "Phân tích này đối chiếu các biến nhân khẩu học của người lao động IT để xem các nhóm tuổi, giới tính, "
             "trình độ học vấn hoặc kinh nghiệm khác nhau phản ứng như thế nào đối với AI và Tự động hóa."
-        )
-
-        demographic_var = st.selectbox(
-            "🔽 Chọn biến nhân khẩu học cần xem:",
-            [
-                "Trình độ học vấn (Education)",
-                "Giới tính (Gender)",
-                "Kinh nghiệm làm việc (Experience)",
-                "Nhóm tuổi (Age Group)"
-            ],
-            key="demo_var_select"
         )
 
         df_plot = merged_df.copy()
@@ -1015,17 +984,31 @@ def page_advanced_insights(desires_df, metadata_df):
 
         # Dynamically compute insight text from actual data
         if group_col == "Education":
-            phd = stats[stats[group_col].astype(str).str.contains("Doctorate|PhD", case=False, na=False)]
-            if not phd.empty:
-                phd_desire = phd["Automation Desire Rating"].values[0]
-                phd_security = phd["Job Security Rating"].values[0]
+            max_desire_idx = stats["Automation Desire Rating"].idxmax()
+            max_security_idx = stats["Job Security Rating"].idxmax()
+            min_security_idx = stats["Job Security Rating"].idxmin()
+            
+            max_desire_group = stats.loc[max_desire_idx, group_col]
+            max_desire_val = stats.loc[max_desire_idx, "Automation Desire Rating"]
+            
+            max_security_group = stats.loc[max_security_idx, group_col]
+            max_security_val = stats.loc[max_security_idx, "Job Security Rating"]
+            
+            min_security_group = stats.loc[min_security_idx, group_col]
+            min_security_val = stats.loc[min_security_idx, "Job Security Rating"]
+            
+            if max_desire_group == max_security_group:
                 st.markdown(
-                    f"*   **Người có học vị cao nhất (Doctorate/PhD)** lại có mong muốn tự động hóa công việc rất cao (~{phd_desire:.2f}) "
-                    f"đồng thời có mức độ lo ngại về an ninh việc làm cao nhất (~{phd_security:.2f}). Điều này cho thấy nhóm nghiên cứu trình độ cao "
-                    "nhận thức rất rõ sức mạnh của AI và muốn dùng nó để giải phóng công việc lặp đi lặp lại, nhưng đồng thời cảm thấy áp lực lớn nhất."
+                    f"*   **Nhóm có học vị {max_desire_group}** vừa có mong muốn tự động hóa công việc cao nhất (~{max_desire_val:.2f}) "
+                    f"vừa có mức độ lo ngại về an ninh việc làm cao nhất (~{max_security_val:.2f}). Điều này chỉ ra rằng nhóm có trình độ này "
+                    f"nhận thức rất rõ tiềm năng của AI và muốn áp dụng nó để nâng cao năng suất, nhưng cũng đồng thời cảm thấy áp lực lớn nhất về tính ổn định công việc."
                 )
             else:
-                st.info("Không đủ dữ liệu nhóm Doctorate/PhD trong bộ lọc hiện tại.")
+                st.markdown(
+                    f"*   **Mong muốn tự động hóa:** Nhóm có trình độ học vấn **{max_desire_group}** có mong muốn tự động hóa cao nhất (~{max_desire_val:.2f}). "
+                    f"Trong khi đó, nhóm **{max_security_group}** lại có mức độ lo ngại về an ninh việc làm cao nhất (~{max_security_val:.2f}) "
+                    f"và nhóm **{min_security_group}** lo ngại ít nhất (~{min_security_val:.2f}). Điều này phản ánh sự phân hóa trong nhận thức và tâm lý của nhân sự đối với làn sóng AI tùy theo trình độ học vấn."
+                )
         elif group_col == "Gender":
             male = stats[stats[group_col] == "Male"]
             female = stats[stats[group_col] == "Female"]
@@ -1034,10 +1017,21 @@ def page_advanced_insights(desires_df, metadata_df):
                 f_desire = female["Automation Desire Rating"].values[0]
                 m_security = male["Job Security Rating"].values[0]
                 f_security = female["Job Security Rating"].values[0]
+                
+                if m_desire > f_desire:
+                    desire_narrative = f"**Nam giới (Male)** có điểm mong muốn tự động hóa cao hơn (**Nam**: ~{m_desire:.2f} so với **Nữ**: ~{f_desire:.2f})"
+                else:
+                    desire_narrative = f"**Nữ giới (Female)** có điểm mong muốn tự động hóa cao hơn (**Nữ**: ~{f_desire:.2f} so với **Nam**: ~{m_desire:.2f})"
+                    
+                if f_security > m_security:
+                    security_narrative = f"**Nữ giới (Female)** lo ngại về an ninh việc làm cao hơn (**Nữ**: ~{f_security:.2f} so với **Nam**: ~{m_security:.2f})"
+                else:
+                    security_narrative = f"**Nam giới (Male)** lo ngại về an ninh việc làm cao hơn (**Nam**: ~{m_security:.2f} so với **Nữ**: ~{f_security:.2f})"
+                
                 st.markdown(
-                    f"*   **Nam giới (Male)** có điểm mong muốn tự động hóa cao hơn (~{m_desire:.2f} so với ~{f_desire:.2f} ở Nữ), "
-                    f"nhưng **Nữ giới (Female)** lại có điểm lo ngại về an ninh việc làm cao hơn (~{f_security:.2f} so với ~{m_security:.2f} ở Nam). "
-                    "Sự lệch pha này chỉ ra rằng nam giới cởi mở hơn với công nghệ nhưng nữ giới có mức độ e dè và phòng thủ cao hơn trước làn sóng AI."
+                    f"*   Theo số liệu thực tế: {desire_narrative}, đồng thời {security_narrative}. "
+                    "Sự chênh lệch này chỉ ra thái độ tiếp cận công nghệ và nhu cầu đảm bảo an toàn việc làm khác nhau giữa các giới tính, "
+                    "đòi hỏi chính sách đổi mới sáng tạo cần đi đôi với sự đồng hành và hỗ trợ phù hợp."
                 )
             else:
                 st.info("Không đủ dữ liệu giới tính trong bộ lọc hiện tại.")
@@ -1045,15 +1039,15 @@ def page_advanced_insights(desires_df, metadata_df):
             max_security_row = stats.loc[stats["Job Security Rating"].idxmax()]
             min_security_row = stats.loc[stats["Job Security Rating"].idxmin()]
             st.markdown(
-                f"*   Nhóm có **{max_security_row[group_col]}** lo ngại về an ninh việc làm nhiều nhất (~{max_security_row['Job Security Rating']:.2f}), trong khi nhóm "
-                f"**{min_security_row[group_col]}** có mức độ lo ngại thấp nhất (~{min_security_row['Job Security Rating']:.2f}). Nhóm mới vào nghề hoặc kinh nghiệm trung bình "
-                "dễ cảm thấy bấp bênh hơn do các tác vụ của họ dễ bị thay thế hơn bởi AI."
+                f"*   Nhóm có kinh nghiệm **{max_security_row[group_col]}** lo ngại về an ninh việc làm nhiều nhất (~{max_security_row['Job Security Rating']:.2f}), trong khi nhóm "
+                f"**{min_security_row[group_col]}** có mức độ lo ngại thấp nhất (~{min_security_row['Job Security Rating']:.2f}). "
+                "Sự khác biệt này phản ánh thâm niên và mức độ nhạy cảm của các tác vụ đối với khả năng thay thế của công nghệ ở các nhóm thâm niên khác nhau."
             )
         else:
             max_desire_row = stats.loc[stats["Automation Desire Rating"].idxmax()]
             st.markdown(
                 f"*   Nhóm tuổi **{max_desire_row[group_col]}** thể hiện mong muốn tự động hóa cao nhất (~{max_desire_row['Automation Desire Rating']:.2f}) "
-                "để giải phóng sức sáng tạo, vượt qua rào cản hành chính."
+                "để giải phóng sức lao động, tiết kiệm thời gian khỏi các thủ tục lặp đi lặp lại."
             )
 
         # 🤖 AI Phân Tích 1: Số liệu & Thái độ
@@ -1075,144 +1069,7 @@ Không viết chung chung hay nói lý thuyết suông. Hãy bám sát các số
             with st.chat_message("assistant"):
                 st.write_stream(generate_ai_insight_stream(part1_prompt, f"Phân tích thái độ AI theo {demographic_var} trong ngành {selected_occ}.", part1_system))
 
-        # ─────────────────────────────────────────────────────────────
-        # 🎯 MA TRẬN SẴN SÀNG NHÂN SỰ (Worker Readiness Matrix)
-        # ─────────────────────────────────────────────────────────────
-        st.markdown("---")
-        st.markdown("#### 🎯 Ma Trận Sẵn Sàng Nhân Sự (Worker Readiness Matrix)")
-        st.markdown(
-            "Áp dụng triết lý **4 phân vùng** của bài báo gốc (vốn dùng cho *tác vụ*) sang phân loại **con người**. "
-            "Mỗi điểm đại diện cho 1 nhóm nhân khẩu học. Ngưỡng: **3.0** (trung điểm thang đo, nhất quán với bài báo)."
-        )
 
-        readiness_sample_counts = df_plot.groupby(group_col, observed=False).size().reset_index(name='N')
-        stats_matrix = stats.merge(readiness_sample_counts, on=group_col, how='left')
-        stats_matrix['N'] = stats_matrix['N'].fillna(0).astype(int)
-
-        _RT = 3.0  # Readiness Threshold
-
-        def _assign_profile(row):
-            d, s = row["Automation Desire Rating"], row["Job Security Rating"]
-            if d >= _RT and s < _RT:
-                return "🟢 Ready Adopters"
-            elif d >= _RT and s >= _RT:
-                return "🟡 Anxious Innovators"
-            elif d < _RT and s < _RT:
-                return "⚪ Passive Observers"
-            else:
-                return "🔴 Threatened Resistors"
-
-        stats_matrix["Profile"] = stats_matrix.apply(_assign_profile, axis=1)
-
-        _profile_colors = {
-            "🟢 Ready Adopters": "#2ecc71",
-            "🟡 Anxious Innovators": "#f39c12",
-            "⚪ Passive Observers": "#95a5a6",
-            "🔴 Threatened Resistors": "#e74c3c",
-        }
-
-        fig_matrix = go.Figure()
-        fig_matrix.update_layout(shapes=[
-            dict(type="rect", x0=_RT, x1=5.5, y0=0.5, y1=_RT,
-                 fillcolor="rgba(46,204,113,0.10)", line=dict(width=0), layer="below"),
-            dict(type="rect", x0=_RT, x1=5.5, y0=_RT, y1=5.5,
-                 fillcolor="rgba(243,156,18,0.10)", line=dict(width=0), layer="below"),
-            dict(type="rect", x0=0.5, x1=_RT, y0=0.5, y1=_RT,
-                 fillcolor="rgba(149,165,166,0.10)", line=dict(width=0), layer="below"),
-            dict(type="rect", x0=0.5, x1=_RT, y0=_RT, y1=5.5,
-                 fillcolor="rgba(231,76,60,0.10)", line=dict(width=0), layer="below"),
-        ])
-
-        for profile, color in _profile_colors.items():
-            subset = stats_matrix[stats_matrix["Profile"] == profile]
-            if subset.empty:
-                continue
-            sizes = subset["N"].apply(lambda n: min(16 + int(np.sqrt(max(n, 1)) * 2), 45)).tolist()
-            fig_matrix.add_trace(go.Scatter(
-                x=subset["Automation Desire Rating"],
-                y=subset["Job Security Rating"],
-                mode="markers+text",
-                name=profile,
-                marker=dict(size=sizes, color=color, opacity=0.9, line=dict(width=2, color="white")),
-                text=subset[group_col].astype(str).apply(lambda x: x[:22]),
-                textposition="top center",
-                textfont=dict(size=9, family="Inter"),
-                customdata=np.stack([subset[group_col].astype(str), subset["N"].astype(str)], axis=-1),
-                hovertemplate=(
-                    "<b>%{customdata[0]}</b><br>"
-                    "Mong muốn TĐH: %{x:.2f}<br>"
-                    "Lo ngại ANVL: %{y:.2f}<br>"
-                    "Số mẫu: %{customdata[1]}<extra></extra>"
-                ),
-            ))
-
-        fig_matrix.add_hline(y=_RT, line_dash="dot", line_color="rgba(0,0,0,0.25)", line_width=1)
-        fig_matrix.add_vline(x=_RT, line_dash="dot", line_color="rgba(0,0,0,0.25)", line_width=1)
-        fig_matrix.update_layout(
-            annotations=[
-                dict(x=4.25, y=0.7, text="🟢 Ready Adopters<br><i>Deploy ngay</i>", showarrow=False,
-                     font=dict(size=10, color="#27ae60", family="Inter"), bgcolor="rgba(255,255,255,0.8)"),
-                dict(x=4.25, y=5.3, text="🟡 Anxious Innovators<br><i>Muốn nhưng sợ mất việc</i>", showarrow=False,
-                     font=dict(size=10, color="#e67e22", family="Inter"), bgcolor="rgba(255,255,255,0.8)"),
-                dict(x=1.5, y=0.7, text="⚪ Passive Observers<br><i>Thờ ơ — Cần training</i>", showarrow=False,
-                     font=dict(size=10, color="#7f8c8d", family="Inter"), bgcolor="rgba(255,255,255,0.8)"),
-                dict(x=1.5, y=5.3, text="🔴 Threatened Resistors<br><i>Kháng cự — Cần hỗ trợ</i>", showarrow=False,
-                     font=dict(size=10, color="#c0392b", family="Inter"), bgcolor="rgba(255,255,255,0.8)"),
-            ],
-            template="plotly_white", height=550,
-            xaxis=dict(title="Mong muốn Tự động hóa (1-5)", range=[0.5, 5.5], dtick=1, gridcolor="rgba(0,0,0,0.06)"),
-            yaxis=dict(title="Lo ngại An ninh việc làm (1-5)", range=[0.5, 5.5], dtick=1, gridcolor="rgba(0,0,0,0.06)"),
-            legend=dict(orientation="h", yanchor="bottom", y=-0.20, xanchor="center", x=0.5),
-            margin=dict(t=30, b=80),
-        )
-        st.plotly_chart(fig_matrix, use_container_width=True, key="scatter_readiness_matrix")
-
-        st.markdown("##### 💡 Diễn giải 4 Profile & Chiến lược ADKAR:")
-        col_r1, col_r2 = st.columns(2)
-        with col_r1:
-            st.markdown(
-                "🟢 **Ready Adopters** (Desire ≥ 3, Security < 3): Deploy AI ngay, biến thành **đại sứ AI**. "
-                "*ADKAR: đã có Awareness + Desire → cần Knowledge + Ability.*"
-            )
-            st.markdown(
-                "🟡 **Anxious Innovators** (Desire ≥ 3, Security ≥ 3): Cần **cam kết an ninh việc làm** trước. "
-                "*Nghịch lý: muốn AI nhưng sợ mất việc.*"
-            )
-        with col_r2:
-            st.markdown(
-                "⚪ **Passive Observers** (Desire < 3, Security < 3): Cần chương trình **trải nghiệm AI** sớm. "
-                "*ADKAR: thiếu Awareness → tăng nhận thức.*"
-            )
-            st.markdown(
-                "🔴 **Threatened Resistors** (Desire < 3, Security ≥ 3): **Ưu tiên hỗ trợ cao nhất**: "
-                "tái đào tạo, cam kết không sa thải. *ADKAR: thiếu A + D.*"
-            )
-
-        _profile_parts = []
-        for p in ["🟢 Ready Adopters", "🟡 Anxious Innovators", "⚪ Passive Observers", "🔴 Threatened Resistors"]:
-            g = stats_matrix[stats_matrix["Profile"] == p][group_col].astype(str).tolist()
-            if g:
-                _profile_parts.append(f"**{p}**: {', '.join(g)}")
-        if _profile_parts:
-            st.info("**Kết quả phân loại:** " + " | ".join(_profile_parts))
-
-        # 🤖 AI Phân Tích 2: Ma Trận Sẵn Sàng
-        st.markdown("<br>", unsafe_allow_html=True)
-        part2_readiness_str = "\n".join([
-            f"- Nhóm {row[group_col]}: Profile {row['Profile']} (Số lượng mẫu N={row['N']}, Desire={row['Automation Desire Rating']:.2f}/5, Security={row['Job Security Rating']:.2f}/5)"
-            for _, row in stats_matrix.iterrows()
-        ])
-        part2_prompt = f"Ngành nghề lọc: {selected_occ}\nBiến nhân khẩu học đang chọn: {demographic_var}\n\nPHÂN LOẠI PROFILE SẴN SÀNG (Worker Readiness Matrix):\n{part2_readiness_str}"
-        part2_system = """
-Bạn là một chuyên gia quản trị thay đổi nhân sự (Change Management). Hãy phân tích kết quả phân loại Profile trên và trả lời bằng tiếng Việt (dưới 220 từ).
-Bố cục bắt buộc:
-1. **Phát hiện phân vùng (Matrix Insights)**: Chỉ ra chính xác các nhóm nhân khẩu học thuộc về phân vùng nào (Ready Adopters, Anxious Innovators, Passive Observers, Threatened Resistors).
-2. **Chiến lược Quản trị Thay đổi (ADKAR strategy)**: Thiết kế giải pháp cụ thể cho ít nhất 2 profile nổi bật xuất hiện trong dữ liệu (ví dụ: cần làm gì cho nhóm Anxious Innovators để giảm lo sợ, cần làm gì cho Ready Adopters để họ dẫn dắt sự thay đổi).
-Bám sát tên nhóm và kết quả phân loại từ dữ liệu thực tế. Tránh lý thuyết suông.
-"""
-        if st.button("✨ AI phân tích Ma Trận Sẵn Sàng & Hành động ADKAR", key="btn_ai_part2"):
-            with st.chat_message("assistant"):
-                st.write_stream(generate_ai_insight_stream(part2_prompt, f"Phân tích Ma trận sẵn sàng nhân sự theo {demographic_var} trong ngành {selected_occ}.", part2_system))
 
         # ─────────────────────────────────────────────────────────────
         # 📊 PHÂN TÍCH ĐỘNG CƠ TỰ ĐỘNG HÓA (Motivation Breakdown)
@@ -1367,12 +1224,23 @@ Hãy bám sát các số liệu tỷ lệ phần trăm được cung cấp.
         low_enjoy = enjoy_stats.loc[enjoy_stats["Enjoyment Rating"].idxmin(), "Automation Desire Rating"]
         high_enjoy = enjoy_stats.loc[enjoy_stats["Enjoyment Rating"].idxmax(), "Automation Desire Rating"]
         corr_type = "âm" if corr < 0 else "dương"
+        
+        if corr < 0:
+            relation_text = (
+                f"Người lao động IT có xu hướng mong muốn tự động hóa cao nhất đối với những tác vụ họ ghét nhất "
+                f"(Enjoyment = 1, điểm mong muốn tự động hóa trung bình đạt **{low_enjoy:.2f}**). "
+                f"Ngược lại, đối với những tác vụ họ vô cùng yêu thích (Enjoyment = 5), điểm mong muốn tự động hóa giảm chỉ còn **{high_enjoy:.2f}**."
+            )
+        else:
+            relation_text = (
+                f"Người lao động IT có xu hướng mong muốn tự động hóa các tác vụ họ yêu thích nhiều hơn "
+                f"(Enjoyment = 5, điểm mong muốn tự động hóa trung bình đạt **{high_enjoy:.2f}** so với **{low_enjoy:.2f}** ở mức họ ghét nhất)."
+            )
+
         st.markdown(
-            f"*   **Hệ số tương quan là {corr:.2f} (Tương quan {corr_type} rõ rệt):** Khẳng định quy luật tâm lý cực kỳ mạnh mẽ. "
-            "Người lao động IT có xu hướng mong muốn tự động hóa cao nhất đối với những tác vụ họ ghét nhất "
-            f"(Enjoyment = 1, điểm mong muốn tự động hóa trung bình đạt **{low_enjoy:.2f}**). "
-            f"Ngược lại, đối với những tác vụ họ vô cùng yêu thích (Enjoyment = 5), điểm mong muốn tự động hóa giảm chỉ còn **{high_enjoy:.2f}**."
-            "\n*   **Khuyến nghị doanh nghiệp:** Khi triển khai AI Agent, doanh nghiệp nên bắt đầu bằng việc tự động hóa những tác vụ lặp đi lặp lại "
+            f"*   **Hệ số tương quan là {corr:.2f} (Tương quan {corr_type} rõ rệt):** Khẳng định quy luật tâm lý lao động. "
+            f"{relation_text}\n"
+            f"*   **Khuyến nghị doanh nghiệp:** Khi triển khai AI Agent, doanh nghiệp nên bắt đầu bằng việc tự động hóa những tác vụ lặp đi lặp lại "
             "và tẻ nhạt trước (vùng Enjoyment thấp) để vừa giải phóng năng suất vừa nhận được sự chào đón nồng nhiệt nhất của nhân viên."
         )
 
@@ -1591,6 +1459,34 @@ def main():
     )
 
     st.sidebar.markdown("---")
+    
+    # Global filters in sidebar
+    selected_occ = "✨ Tất cả"
+    demographic_var = "Trình độ học vấn (Education)"
+    
+    if not (page.startswith("4") or page.startswith("💬") or "Chatbot" in page):
+        st.sidebar.markdown("### 🔍 Bộ lọc toàn cục (Global Filters)")
+        selected_occ = st.sidebar.selectbox(
+            "🔽 Chọn ngành nghề cần lọc:",
+            ["✨ Tất cả"] + IT_OCCUPATIONS,
+            index=0,
+            key="global_occ_filter"
+        )
+        
+        if page.startswith("✨") or "Nghiên Cứu" in page:
+            demographic_var = st.sidebar.selectbox(
+                "🔽 Chọn biến nhân khẩu học:",
+                [
+                    "Trình độ học vấn (Education)",
+                    "Giới tính (Gender)",
+                    "Kinh nghiệm làm việc (Experience)",
+                    "Nhóm tuổi (Age Group)"
+                ],
+                index=0,
+                key="global_demo_filter"
+            )
+        st.sidebar.markdown("---")
+
     st.sidebar.markdown(
         f"📊 **Dữ liệu:**\n"
         f"- Workers: {len(desires):,} records\n"
@@ -1608,15 +1504,15 @@ def main():
     # Route pages
     if page.startswith("1"):
         landscape_df = build_landscape_df(desires, expert)
-        page_landscape(landscape_df)
+        page_landscape(landscape_df, selected_occ)
 
     elif page.startswith("2"):
         landscape_df = build_landscape_df(desires, expert)
-        page_mismatch(landscape_df)
+        page_mismatch(landscape_df, selected_occ)
 
     elif page.startswith("3"):
         has_df = build_has_data(desires, expert)
-        page_has_spectrum(has_df)
+        page_has_spectrum(has_df, selected_occ)
 
     elif page.startswith("4"):
         skill_df = build_skill_shift_data(tasks, expert)
@@ -1626,7 +1522,7 @@ def main():
         page_chatbot()
 
     elif page.startswith("✨") or "Nghiên Cứu" in page:
-        page_advanced_insights(desires, metadata)
+        page_advanced_insights(desires, metadata, selected_occ, demographic_var)
 
 
 if __name__ == "__main__":
